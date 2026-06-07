@@ -24,4 +24,8 @@ public class ProductoRepository {
         .filter(d -> d.getId() != null && d.getId().toString().equals(id.trim()))
         .findFirst();
   }
+
+  public void deleteAll() {
+    this.productos.clear();
+  }
 }

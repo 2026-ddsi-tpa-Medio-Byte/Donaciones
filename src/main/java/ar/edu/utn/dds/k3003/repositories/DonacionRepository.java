@@ -36,4 +36,12 @@ public class DonacionRepository {
   public List<Donacion> findByDonador(String donadorId) {
     return this.donaciones.stream().filter(d -> d.getDonadorId().equals(donadorId)).toList();
   }
+
+  public List<Donacion> findAll() {
+    return List.copyOf(this.donaciones);
+  }
+
+  public void deleteAll() {
+    this.donaciones.clear();
+  }
 }

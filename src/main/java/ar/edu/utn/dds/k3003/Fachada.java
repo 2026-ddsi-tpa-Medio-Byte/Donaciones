@@ -1,62 +1,167 @@
 package ar.edu.utn.dds.k3003;
 
-import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.*;
+import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO;
+import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
+import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.IdentificadorDTO;
+import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.QuejaDTO;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonaciones;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaLogistica;
 import ar.edu.utn.dds.k3003.model.Donacion;
 import ar.edu.utn.dds.k3003.model.EstadoDonacionEn;
+import ar.edu.utn.dds.k3003.repositories.DonacionJpaRepository;
 import ar.edu.utn.dds.k3003.repositories.DonacionRepository;
+import ar.edu.utn.dds.k3003.repositories.IdentificadorJpaRepository;
 import ar.edu.utn.dds.k3003.repositories.IdentificadorRepository;
+import ar.edu.utn.dds.k3003.repositories.ProductoJpaRepository;
 import ar.edu.utn.dds.k3003.repositories.ProductoRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+@Service
 public class Fachada implements FachadaDonaciones {
 
-  private final DonacionRepository donacionRepository;
-  private final ProductoRepository productoRepository;
-  private final IdentificadorRepository identificadorRepository;
+  private final DonacionRepository inMemoryDonacionRepository;
+  private final ProductoRepository inMemoryProductoRepository;
+  private final IdentificadorRepository inMemoryIdentificadorRepository;
+
+  private final DonacionJpaRepository donacionJpaRepository;
+  private final ProductoJpaRepository productoJpaRepository;
+  private final IdentificadorJpaRepository identificadorJpaRepository;
+
+  private final MetricasService metricasService;
 
   private FachadaLogistica fachadaLogistica;
   private FachadaDonadoresYEntidades fachadaDonadores;
 
   public Fachada() {
-    this.donacionRepository = new DonacionRepository();
-    this.productoRepository = new ProductoRepository();
-    this.identificadorRepository = new IdentificadorRepository();
+    this.inMemoryDonacionRepository = new DonacionRepository();
+    this.inMemoryProductoRepository = new ProductoRepository();
+    this.inMemoryIdentificadorRepository = new IdentificadorRepository();
+    this.donacionJpaRepository = null;
+    this.productoJpaRepository = null;
+    this.identificadorJpaRepository = null;
+    this.metricasService = null;
+  }
+
+  @Autowired
+  public Fachada(
+      DonacionJpaRepository donacionJpaRepository,
+      ProductoJpaRepository productoJpaRepository,
+      IdentificadorJpaRepository identificadorJpaRepository,
+      FachadaDonadoresYEntidades fachadaDonadores,
+      FachadaLogistica fachadaLogistica,
+      MetricasService metricasService) {
+    this.inMemoryDonacionRepository = null;
+    this.inMemoryProductoRepository = null;
+    this.inMemoryIdentificadorRepository = null;
+    this.donacionJpaRepository = donacionJpaRepository;
+    this.productoJpaRepository = productoJpaRepository;
+    this.identificadorJpaRepository = identificadorJpaRepository;
+    this.fachadaDonadores = fachadaDonadores;
+    this.fachadaLogistica = fachadaLogistica;
+    this.metricasService = metricasService;
+  }
+
+  private Optional<Long> parseLongId(String id) {
+    if (id == null || id.isBlank()) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(Long.parseLong(id.trim()));
+    } catch (NumberFormatException e) {
+      return Optional.empty();
+    }
+  }
+
+  private Donacion saveDonacion(Donacion donacion) {
+    if (donacionJpaRepository != null) {
+      return donacionJpaRepository.save(donacion);
+    }
+    return inMemoryDonacionRepository.save(donacion);
+  }
+
+  private Optional<Donacion> findDonacionById(String id) {
+    if (donacionJpaRepository != null) {
+      return parseLongId(id).flatMap(donacionJpaRepository::findById);
+    }
+    return inMemoryDonacionRepository.findById(id);
+  }
+
+  private List<Donacion> findDonacionesByDonador(String donadorId) {
+    if (donacionJpaRepository != null) {
+      return donacionJpaRepository.findByDonadorId(donadorId);
+    }
+    return inMemoryDonacionRepository.findByDonador(donadorId);
+  }
+
+  private List<Donacion> findAllDonaciones() {
+    if (donacionJpaRepository != null) {
+      return donacionJpaRepository.findAll();
+    }
+    return inMemoryDonacionRepository.findAll();
+  }
+
+  private ar.edu.utn.dds.k3003.model.Identificador findIdentificadorById(String id) {
+    if (identificadorJpaRepository != null) {
+      return parseLongId(id)
+          .flatMap(identificadorJpaRepository::findById)
+          .orElseThrow(() -> new NoSuchElementException("Identificador no encontrado: " + id));
+    }
+    return inMemoryIdentificadorRepository
+        .findById(id)
+        .orElseThrow(() -> new NoSuchElementException("Identificador no encontrado: " + id));
+  }
+
+  private ar.edu.utn.dds.k3003.model.Producto findProductoById(String id) {
+    if (productoJpaRepository != null) {
+      return parseLongId(id)
+          .flatMap(productoJpaRepository::findById)
+          .orElseThrow(() -> new NoSuchElementException("Producto no encontrado: " + id));
+    }
+    return inMemoryProductoRepository
+        .findById(id)
+        .orElseThrow(() -> new NoSuchElementException("Producto no encontrado: " + id));
+  }
+
+  private void registrarMetricasError() {
+    if (metricasService != null) {
+      metricasService.incrementarDonacionesErrores();
+    }
   }
 
   /*------------------------------------------------------------Entrega 1--------------------------------------------------------------------------------- */
 
   public DonacionDTO registrarDonacion(DonacionDTO donacionDTO) {
-    if (donacionDTO == null) throw new RuntimeException("DTO nulo");
+    if (donacionDTO == null) {
+      registrarMetricasError();
+      throw new RuntimeException("DTO nulo");
+    }
 
-    // REGLA 1: Si el DTO ya trae ID, el test espera que falle.
-    // Esto arregla el error "testRegistrarDonacionFallido"
     if (donacionDTO.id() != null) {
+      registrarMetricasError();
       throw new RuntimeException("La donación ya tiene un ID asignado.");
     }
 
-    // Validaciones de fachadas
     this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
 
     if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
+      registrarMetricasError();
       throw new RuntimeException("No puede donar");
     }
 
-    // Logística antes que puedeDonar
     this.fachadaLogistica.gestionarDonacion(
         donacionDTO.donadorID(),
         donacionDTO.depositoID(),
         donacionDTO.productoID(),
         donacionDTO.cantidad());
 
-    // Crear modelo
     Donacion nuevaDonacion =
         new Donacion(
             donacionDTO.donadorID(),
@@ -64,38 +169,39 @@ public class Fachada implements FachadaDonaciones {
             donacionDTO.depositoID(),
             donacionDTO.descripcion());
 
-    // Guardar (Aquí el repo le pondrá el ID "donacion1" si el test lo pre-configuró)
-    Donacion guardada = this.donacionRepository.save(nuevaDonacion);
+    Donacion guardada = saveDonacion(nuevaDonacion);
+    if (metricasService != null) {
+      metricasService.incrementarDonacionesRegistradas();
+    }
     return mapearADTO(guardada);
   }
 
   @Override
   public DonacionDTO buscarDonacionPorID(String donacionID) {
-    return donacionRepository
-        .findById(donacionID)
+    return findDonacionById(donacionID)
         .map(this::mapearADTO)
         .orElseThrow(() -> new RuntimeException("No existe la donación"));
   }
 
   @Override
   public DonacionDTO cambiarEstadoDeDonacion(String donacionID, EstadoDonacionEnum estado) {
-
     if (estado == null) {
       throw new RuntimeException("El estado no puede ser nulo.");
     }
 
     Donacion donacion =
-        this.donacionRepository
-            .findById(donacionID)
-            .orElseThrow(() -> new RuntimeException("Test: ID no encontrado"));
-
+        findDonacionById(donacionID).orElseThrow(() -> new RuntimeException("Test: ID no encontrado"));
     donacion.setEstado(EstadoDonacionEn.valueOf(estado.name()));
-    return mapearADTO(donacion);
+    Donacion actualizada = saveDonacion(donacion);
+    if (metricasService != null) {
+      metricasService.incrementarDonacionesCambioEstado();
+    }
+    return mapearADTO(actualizada);
   }
 
   @Override
   public List<DonacionDTO> buscarPorDonadorYFechaInicio(String donadorID, LocalDate fecha) {
-    List<Donacion> donaciones = this.donacionRepository.findByDonador(donadorID);
+    List<Donacion> donaciones = findDonacionesByDonador(donadorID);
 
     if (donaciones == null || donaciones.isEmpty()) {
       throw new RuntimeException("No hay donaciones para el donador: " + donadorID);
@@ -107,21 +213,21 @@ public class Fachada implements FachadaDonaciones {
         .collect(Collectors.toList());
   }
 
+  public List<DonacionDTO> buscarTodasDonaciones() {
+    return findAllDonaciones().stream().map(this::mapearADTO).collect(Collectors.toList());
+  }
+
   @Override
   public DonacionDTO registrarQuejaEnDonacion(String donacionID, String descripcion) {
     Donacion donacion =
-        this.donacionRepository
-            .findById(donacionID)
-            .orElseThrow(() -> new RuntimeException("No existe"));
+        findDonacionById(donacionID).orElseThrow(() -> new RuntimeException("No existe"));
 
-    // 1. Primero armamos el DTO
     QuejaDTO quejaDTO = new QuejaDTO(null, donacionID, donacion.getDonadorId(), null, descripcion);
-
     this.fachadaDonadores.agregarQueja(quejaDTO);
-
-    // 3. SI Y SOLO SI la queja se registró bien, cambiamos el estado
     cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.CONQUEJA);
-
+    if (metricasService != null) {
+      metricasService.incrementarDonacionesQuejas();
+    }
     return mapearADTO(donacion);
   }
 
@@ -135,6 +241,18 @@ public class Fachada implements FachadaDonaciones {
     this.fachadaLogistica = fachadaLogistica;
   }
 
+  public void resetBaseDeDatos() {
+    if (donacionJpaRepository != null) {
+      productoJpaRepository.deleteAll();
+      identificadorJpaRepository.deleteAll();
+      donacionJpaRepository.deleteAll();
+      return;
+    }
+    inMemoryProductoRepository.deleteAll();
+    inMemoryIdentificadorRepository.deleteAll();
+    inMemoryDonacionRepository.deleteAll();
+  }
+
   /*------------------------------------------------------------Entrega 2--------------------------------------------------------------------------------- */
 
   @Override
@@ -142,36 +260,32 @@ public class Fachada implements FachadaDonaciones {
     ar.edu.utn.dds.k3003.model.Identificador identificador =
         new ar.edu.utn.dds.k3003.model.Identificador(dto.tipo(), dto.descripcion());
     ar.edu.utn.dds.k3003.model.Identificador guardado =
-        this.identificadorRepository.save(identificador);
+        identificadorJpaRepository != null
+            ? identificadorJpaRepository.save(identificador)
+            : inMemoryIdentificadorRepository.save(identificador);
     return new IdentificadorDTO(
         guardado.getId().toString(), guardado.getTipo(), guardado.getDescripcion());
   }
 
   @Override
   public IdentificadorDTO buscarIdentificadorPorID(String identificadorID) {
-    ar.edu.utn.dds.k3003.model.Identificador identificador =
-        this.identificadorRepository
-            .findById(identificadorID)
-            .orElseThrow(
-                () ->
-                    new NoSuchElementException("Identificador no encontrado: " + identificadorID));
+    ar.edu.utn.dds.k3003.model.Identificador identificador = findIdentificadorById(identificadorID);
     return new IdentificadorDTO(
         identificador.getId().toString(), identificador.getTipo(), identificador.getDescripcion());
   }
 
   @Override
   public ProductoDTO agregarProducto(ProductoDTO dto) {
-    ar.edu.utn.dds.k3003.model.Identificador identificador =
-        this.identificadorRepository
-            .findById(dto.identificadorID())
-            .orElseThrow(() -> new NoSuchElementException("Identificador no encontrado"));
-
+    ar.edu.utn.dds.k3003.model.Identificador identificador = findIdentificadorById(dto.identificadorID());
     validarProducto(dto, identificador);
 
     ar.edu.utn.dds.k3003.model.Producto producto =
         new ar.edu.utn.dds.k3003.model.Producto(
             dto.nombre(), dto.descripcion(), dto.categoriaID(), identificador.getId());
-    ar.edu.utn.dds.k3003.model.Producto guardado = this.productoRepository.save(producto);
+    ar.edu.utn.dds.k3003.model.Producto guardado =
+        productoJpaRepository != null
+            ? productoJpaRepository.save(producto)
+            : inMemoryProductoRepository.save(producto);
 
     return new ProductoDTO(
         guardado.getId().toString(),
@@ -183,10 +297,7 @@ public class Fachada implements FachadaDonaciones {
 
   @Override
   public ProductoDTO buscarProductoPorID(String productoID) {
-    ar.edu.utn.dds.k3003.model.Producto producto =
-        this.productoRepository
-            .findById(productoID)
-            .orElseThrow(() -> new NoSuchElementException("Producto no encontrado: " + productoID));
+    ar.edu.utn.dds.k3003.model.Producto producto = findProductoById(productoID);
     return new ProductoDTO(
         producto.getId().toString(),
         producto.getNombre(),

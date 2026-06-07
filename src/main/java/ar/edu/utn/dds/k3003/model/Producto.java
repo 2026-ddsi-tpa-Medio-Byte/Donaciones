@@ -1,12 +1,22 @@
 package ar.edu.utn.dds.k3003.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
 public class Producto {
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
   private String nombre;
   private String descripcion;
   private String categoriaID;
   private Long identificadorID;
   private Subcategoria subcategoria;
+
+  public Producto() {}
 
   public Producto(String nombre, String descripcion, String categoriaID, Long identificadorID) {
     this.nombre = nombre;

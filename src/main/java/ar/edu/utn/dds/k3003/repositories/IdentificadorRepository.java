@@ -24,4 +24,8 @@ public class IdentificadorRepository {
         .filter(i -> i.getId() != null && i.getId().toString().equals(id.trim()))
         .findFirst();
   }
+
+  public void deleteAll() {
+    this.identificadores.clear();
+  }
 }

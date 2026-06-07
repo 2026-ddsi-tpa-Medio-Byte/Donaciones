@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,9 +41,20 @@ public class DonacionController {
   @Operation(summary = "Buscar donaciones por donador y fecha")
   @GetMapping("/donaciones")
   public ResponseEntity<List<DonacionDTO>> buscarDonaciones(
-      @RequestParam String donadorID, @RequestParam String fecha) {
+      @RequestParam(required = false) String donadorID,
+      @RequestParam(required = false) String fecha) {
+    if (donadorID == null || fecha == null) {
+      return ResponseEntity.ok(fachada.buscarTodasDonaciones());
+    }
     return ResponseEntity.ok(
         fachada.buscarPorDonadorYFechaInicio(donadorID, LocalDate.parse(fecha)));
+  }
+
+  @Operation(summary = "Resetear todas las donaciones, productos e identificadores")
+  @DeleteMapping("/donaciones/reset")
+  public ResponseEntity<String> resetDonaciones() {
+    fachada.resetBaseDeDatos();
+    return ResponseEntity.ok("Base de datos limpiada");
   }
 
   @Operation(summary = "Buscar donación por ID")
