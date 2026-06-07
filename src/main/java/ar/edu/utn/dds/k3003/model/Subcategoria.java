@@ -6,14 +6,11 @@ import jakarta.persistence.Embeddable;
 public class Subcategoria {
   private Long id;
   private String nombre;
-  private Categoria categoria; // La categoría a la que pertenece
-
   public Subcategoria() {}
 
-  public Subcategoria(Long id, String nombre, Categoria categoria) {
+  public Subcategoria(Long id, String nombre) {
     this.id = id;
     this.nombre = nombre;
-    this.categoria = categoria;
   }
 
   public Long getId() {
@@ -30,13 +27,5 @@ public class Subcategoria {
 
   public void setNombre(String nombre) {
     this.nombre = nombre;
-  }
-
-  public Categoria getCategoria() {
-    return categoria;
-  }
-
-  public void setCategoria(Categoria categoria) {
-    this.categoria = categoria;
   }
 }

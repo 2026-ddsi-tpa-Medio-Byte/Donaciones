@@ -1,6 +1,5 @@
 package ar.edu.utn.dds.k3003.model;
 
-import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -15,10 +14,6 @@ public class Producto {
   private String descripcion;
   private String categoriaID;
   private Long identificadorID;
-
-  @Embedded
-  private Subcategoria subcategoria;
-
   public Producto() {}
 
   public Producto(String nombre, String descripcion, String categoriaID, Long identificadorID) {
@@ -50,14 +45,6 @@ public class Producto {
 
   public void setDescripcion(String descripcion) {
     this.descripcion = descripcion;
-  }
-
-  public Subcategoria getSubcategoria() {
-    return subcategoria;
-  }
-
-  public void setSubcategoria(Subcategoria subcategoria) {
-    this.subcategoria = subcategoria;
   }
 
   public String getCategoriaID() {
