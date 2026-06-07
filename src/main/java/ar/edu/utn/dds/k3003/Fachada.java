@@ -40,6 +40,18 @@ public class Fachada implements FachadaDonaciones {
   private FachadaLogistica fachadaLogistica;
   private FachadaDonadoresYEntidades fachadaDonadores;
 
+  public Fachada() {
+    this.inMemoryDonacionRepository = new DonacionRepository();
+    this.inMemoryProductoRepository = new ProductoRepository();
+    this.inMemoryIdentificadorRepository = new IdentificadorRepository();
+    this.donacionJpaRepository = null;
+    this.productoJpaRepository = null;
+    this.identificadorJpaRepository = null;
+    this.metricasService = null;
+    this.fachadaDonadores = null;
+    this.fachadaLogistica = null;
+  }
+
   @Autowired
   public Fachada(
       DonacionJpaRepository donacionJpaRepository,
