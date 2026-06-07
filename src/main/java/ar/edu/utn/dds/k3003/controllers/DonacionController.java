@@ -57,6 +57,12 @@ public class DonacionController {
     return ResponseEntity.ok("Base de datos limpiada");
   }
 
+  @Operation(summary = "Cargar datos de prueba en la base de datos")
+  @PostMapping("/seed")
+  public ResponseEntity<String> seedBaseDeDatos() {
+    return ResponseEntity.ok(fachada.seedBaseDeDatos());
+  }
+
   @Operation(summary = "Buscar donación por ID")
   @GetMapping("/donaciones/{id}")
   public ResponseEntity<DonacionDTO> buscarDonacionPorID(@PathVariable String id) {

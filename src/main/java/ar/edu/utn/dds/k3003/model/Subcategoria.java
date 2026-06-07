@@ -1,9 +1,14 @@
 package ar.edu.utn.dds.k3003.model;
 
+import jakarta.persistence.Embeddable;
+
+@Embeddable
 public class Subcategoria {
   private Long id;
   private String nombre;
   private Categoria categoria; // La categoría a la que pertenece
+
+  public Subcategoria() {}
 
   public Subcategoria(Long id, String nombre, Categoria categoria) {
     this.id = id;

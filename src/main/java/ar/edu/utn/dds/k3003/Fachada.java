@@ -40,16 +40,6 @@ public class Fachada implements FachadaDonaciones {
   private FachadaLogistica fachadaLogistica;
   private FachadaDonadoresYEntidades fachadaDonadores;
 
-  public Fachada() {
-    this.inMemoryDonacionRepository = new DonacionRepository();
-    this.inMemoryProductoRepository = new ProductoRepository();
-    this.inMemoryIdentificadorRepository = new IdentificadorRepository();
-    this.donacionJpaRepository = null;
-    this.productoJpaRepository = null;
-    this.identificadorJpaRepository = null;
-    this.metricasService = null;
-  }
-
   @Autowired
   public Fachada(
       DonacionJpaRepository donacionJpaRepository,
@@ -251,6 +241,27 @@ public class Fachada implements FachadaDonaciones {
     inMemoryProductoRepository.deleteAll();
     inMemoryIdentificadorRepository.deleteAll();
     inMemoryDonacionRepository.deleteAll();
+  }
+
+  public String seedBaseDeDatos() {
+    resetBaseDeDatos();
+
+    IdentificadorDTO identificadorDTO =
+        agregarIdentificador(
+            new IdentificadorDTO(
+                null,
+                ar.edu.utn.dds.k3003.catedra.dtos.donaciones.TipoIdentificadorEnum.CODIGODEBARRAS,
+                "Identificador semilla"));
+
+    agregarProducto(
+        new ProductoDTO(
+            null,
+            "Arroz",
+            "Arroz blanco largo fino",
+            "alimentos",
+            identificadorDTO.id()));
+
+    return "Datos de prueba cargados correctamente";
   }
 
   /*------------------------------------------------------------Entrega 2--------------------------------------------------------------------------------- */

@@ -1,5 +1,6 @@
 package ar.edu.utn.dds.k3003.model;
 
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,6 +15,8 @@ public class Producto {
   private String descripcion;
   private String categoriaID;
   private Long identificadorID;
+
+  @Embedded
   private Subcategoria subcategoria;
 
   public Producto() {}
