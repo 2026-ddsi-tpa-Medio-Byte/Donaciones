@@ -142,40 +142,47 @@ public class Fachada implements FachadaDonaciones {
 
   public DonacionDTO registrarDonacion(DonacionDTO donacionDTO) {
     if (donacionDTO == null) {
-      registrarMetricasError();
+      if (metricasService != null) metricasService.incrementarDonacionesErrores();
       throw new RuntimeException("DTO nulo");
     }
 
     if (donacionDTO.id() != null) {
-      registrarMetricasError();
+      if (metricasService != null) metricasService.incrementarDonacionesErrores();
       throw new RuntimeException("La donación ya tiene un ID asignado.");
     }
 
-    this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
+    try {
+      this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
 
-    if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
-      registrarMetricasError();
-      throw new RuntimeException("No puede donar");
+      if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
+        if (metricasService != null) metricasService.incrementarDonacionesErrores();
+        throw new RuntimeException("No puede donar");
+      }
+
+      this.fachadaLogistica.gestionarDonacion(
+          donacionDTO.donadorID(),
+          donacionDTO.depositoID(),
+          donacionDTO.productoID(),
+          donacionDTO.cantidad());
+
+      Donacion nuevaDonacion = new Donacion(
+          donacionDTO.donadorID(),
+          donacionDTO.cantidad(),
+          donacionDTO.depositoID(),
+          donacionDTO.descripcion());
+
+      Donacion guardada = saveDonacion(nuevaDonacion);
+      if (metricasService != null) {
+        metricasService.incrementarDonacionesRegistradas();
+      }
+      return mapearADTO(guardada);
+
+    } catch (RuntimeException e) {
+      if (metricasService != null) {
+        metricasService.incrementarDonacionesErrores();
+      }
+      throw e;
     }
-
-    this.fachadaLogistica.gestionarDonacion(
-        donacionDTO.donadorID(),
-        donacionDTO.depositoID(),
-        donacionDTO.productoID(),
-        donacionDTO.cantidad());
-
-    Donacion nuevaDonacion =
-        new Donacion(
-            donacionDTO.donadorID(),
-            donacionDTO.cantidad(),
-            donacionDTO.depositoID(),
-            donacionDTO.descripcion());
-
-    Donacion guardada = saveDonacion(nuevaDonacion);
-    if (metricasService != null) {
-      metricasService.incrementarDonacionesRegistradas();
-    }
-    return mapearADTO(guardada);
   }
 
   @Override
