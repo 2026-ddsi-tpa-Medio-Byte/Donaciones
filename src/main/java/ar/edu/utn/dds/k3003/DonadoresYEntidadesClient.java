@@ -54,16 +54,14 @@ public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
     return restTemplate.postForObject(url, quejaDTO, QuejaDTO.class);
   }
 
-    @Override
-  public DepositoDTO gestionarDonacion(
-      String depositoID, String donacionID, String productoID, Integer cantidad) {
-    String url = String.format("%s/asignaciones", baseUrl);
-    var body = new java.util.HashMap<String, Object>();
-    body.put("depositoID", depositoID);
-    body.put("donacionID", donacionID);
-    body.put("productoID", productoID);
-    body.put("cantidad", cantidad);
-    return restTemplate.postForObject(url, body, DepositoDTO.class);
+     @Override
+  public Boolean puedeDonar(String donadorID) {
+    String url = String.format("%s/donadores/%s/puede-donar", baseUrl, donadorID);
+    Map<String, Object> respuesta = restTemplate.getForObject(url, Map.class);
+    if (respuesta == null || respuesta.get("puedeDonar") == null) {
+      return false;
+    }
+    return Boolean.parseBoolean(respuesta.get("puedeDonar").toString());
   }
 
   @Override
