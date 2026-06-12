@@ -13,29 +13,29 @@ public class MetricasService {
   private final Counter donacionesQuejas;
 
   public MetricasService(MeterRegistry meterRegistry) {
-    this.donacionesRegistradas =
-        Counter.builder("donaciones.registradas").description("Cantidad de donaciones registradas").register(meterRegistry);
-    this.donacionesErrores =
-        Counter.builder("donaciones.errores").description("Cantidad de errores al registrar donaciones").register(meterRegistry);
-    this.donacionesCambioEstado =
-        Counter.builder("donaciones.cambio_estado").description("Cantidad de cambios de estado de donaciones").register(meterRegistry);
-    this.donacionesQuejas =
-        Counter.builder("donaciones.quejas").description("Cantidad de quejas registradas").register(meterRegistry);
+    this.donacionesRegistradas = Counter.builder("donaciones.registradas")
+        .description("Cantidad de donaciones registradas exitosamente")
+        .tag("modulo", "donaciones")
+        .register(meterRegistry);
+
+    this.donacionesErrores = Counter.builder("donaciones.errores")
+        .description("Cantidad de errores al operar con donaciones")
+        .tag("modulo", "donaciones")
+        .register(meterRegistry);
+
+    this.donacionesCambioEstado = Counter.builder("donaciones.cambio_estado")
+        .description("Cantidad de cambios de estado de donaciones")
+        .tag("modulo", "donaciones")
+        .register(meterRegistry);
+
+    this.donacionesQuejas = Counter.builder("donaciones.quejas")
+        .description("Cantidad de quejas registradas en donaciones")
+        .tag("modulo", "donaciones")
+        .register(meterRegistry);
   }
 
-  public void incrementarDonacionesRegistradas() {
-    donacionesRegistradas.increment();
-  }
-
-  public void incrementarDonacionesErrores() {
-    donacionesErrores.increment();
-  }
-
-  public void incrementarDonacionesCambioEstado() {
-    donacionesCambioEstado.increment();
-  }
-
-  public void incrementarDonacionesQuejas() {
-    donacionesQuejas.increment();
-  }
+  public void incrementarDonacionesRegistradas() { donacionesRegistradas.increment(); }
+  public void incrementarDonacionesErrores()     { donacionesErrores.increment(); }
+  public void incrementarDonacionesCambioEstado(){ donacionesCambioEstado.increment(); }
+  public void incrementarDonacionesQuejas()       { donacionesQuejas.increment(); }
 }

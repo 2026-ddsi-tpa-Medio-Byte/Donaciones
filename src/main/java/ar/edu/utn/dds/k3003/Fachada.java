@@ -133,21 +133,21 @@ public class Fachada implements FachadaDonaciones {
   }
 
   private void registrarMetricasError() {
-    if (metricasService != null) {
+    
       metricasService.incrementarDonacionesErrores();
-    }
+    
   }
 
   /*------------------------------------------------------------Entrega 1--------------------------------------------------------------------------------- */
 
   public DonacionDTO registrarDonacion(DonacionDTO donacionDTO) {
     if (donacionDTO == null) {
-      if (metricasService != null) metricasService.incrementarDonacionesErrores();
+      metricasService.incrementarDonacionesErrores();
       throw new RuntimeException("DTO nulo");
     }
 
     if (donacionDTO.id() != null) {
-      if (metricasService != null) metricasService.incrementarDonacionesErrores();
+      metricasService.incrementarDonacionesErrores();
       throw new RuntimeException("La donación ya tiene un ID asignado.");
     }
 
@@ -155,7 +155,7 @@ public class Fachada implements FachadaDonaciones {
       this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
 
       if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
-        if (metricasService != null) metricasService.incrementarDonacionesErrores();
+        metricasService.incrementarDonacionesErrores();
         throw new RuntimeException("No puede donar");
       }
 
@@ -173,15 +173,15 @@ public class Fachada implements FachadaDonaciones {
           donacionDTO.productoID(),
           donacionDTO.cantidad());
 
-      if (metricasService != null) {
+    
         metricasService.incrementarDonacionesRegistradas();
-      }
+      
       return mapearADTO(guardada);
 
     } catch (RuntimeException e) {
-      if (metricasService != null) {
+      
         metricasService.incrementarDonacionesErrores();
-      }
+      
       throw e;
     }
   }
@@ -203,9 +203,9 @@ public class Fachada implements FachadaDonaciones {
         findDonacionById(donacionID).orElseThrow(() -> new RuntimeException("Test: ID no encontrado"));
     donacion.setEstado(EstadoDonacionEn.valueOf(estado.name()));
     Donacion actualizada = saveDonacion(donacion);
-    if (metricasService != null) {
+    
       metricasService.incrementarDonacionesCambioEstado();
-    }
+    
     return mapearADTO(actualizada);
   }
 
@@ -235,9 +235,9 @@ public class Fachada implements FachadaDonaciones {
     QuejaDTO quejaDTO = new QuejaDTO(null, donacionID, donacion.getDonadorId(), null, descripcion);
     this.fachadaDonadores.agregarQueja(quejaDTO);
     cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.CONQUEJA);
-    if (metricasService != null) {
+    
       metricasService.incrementarDonacionesQuejas();
-    }
+    
     return mapearADTO(donacion);
   }
 
