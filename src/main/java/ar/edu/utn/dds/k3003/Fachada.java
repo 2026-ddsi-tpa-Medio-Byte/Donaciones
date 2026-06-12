@@ -159,12 +159,6 @@ public class Fachada implements FachadaDonaciones {
         throw new RuntimeException("No puede donar");
       }
 
-      this.fachadaLogistica.gestionarDonacion(
-          donacionDTO.donadorID(),
-          donacionDTO.depositoID(),
-          donacionDTO.productoID(),
-          donacionDTO.cantidad());
-
       Donacion nuevaDonacion = new Donacion(
           donacionDTO.donadorID(),
           donacionDTO.cantidad(),
@@ -172,6 +166,13 @@ public class Fachada implements FachadaDonaciones {
           donacionDTO.descripcion());
 
       Donacion guardada = saveDonacion(nuevaDonacion);
+
+      this.fachadaLogistica.gestionarDonacion(
+          donacionDTO.depositoID(),
+          guardada.getId().toString(),
+          donacionDTO.productoID(),
+          donacionDTO.cantidad());
+
       if (metricasService != null) {
         metricasService.incrementarDonacionesRegistradas();
       }
