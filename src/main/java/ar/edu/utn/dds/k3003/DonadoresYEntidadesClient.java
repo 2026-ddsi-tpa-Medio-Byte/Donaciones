@@ -4,6 +4,7 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.*;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaIncentivos;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -55,7 +56,11 @@ public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
   @Override
   public Boolean puedeDonar(String donadorID) {
     String url = String.format("%s/donadores/%s/puede-donar", baseUrl, donadorID);
-    return restTemplate.getForObject(url, Boolean.class);
+    Map<String, Object> respuesta = restTemplate.getForObject(url, Map.class);
+    if (respuesta == null || respuesta.get("puedeDonar") == null) {
+      return false;
+    }
+    return Boolean.parseBoolean(respuesta.get("puedeDonar").toString());
   }
 
   @Override
