@@ -41,17 +41,14 @@ public class LogisticaClient implements FachadaLogistica {
     return restTemplate.getForObject(url, AsignacionDTO.class);
   }
 
-  @Override
-  public DepositoDTO gestionarDonacion(
-      String depositoID, String donacionID, String productoID, Integer cantidad) {
-    String url = String.format("%s/asignaciones", baseUrl);
-    var body = new java.util.HashMap<String, Object>();
-    body.put("depositoID", depositoID);
-    body.put("donacionID", donacionID);
-    body.put("productoID", productoID);
-    body.put("cantidad", cantidad);
-    return restTemplate.postForObject(url, body, DepositoDTO.class);
-  }
+@Override
+public DepositoDTO gestionarDonacion(
+    String depositoID, String donacionID, String productoID, Integer cantidad) {
+  String url = String.format(
+      "%s/depositos/gestionar-donacion?depositoid=%s&donacionid=%s&productoid=%s&cantidad=%s",
+      baseUrl, depositoID, donacionID, productoID, cantidad);
+  return restTemplate.postForObject(url, null, DepositoDTO.class);
+}
 
   @Override
   public void setAlgoritmoMM(String depositoID, TipoAlgoritmoEnum tipoAlgoritmo) {
