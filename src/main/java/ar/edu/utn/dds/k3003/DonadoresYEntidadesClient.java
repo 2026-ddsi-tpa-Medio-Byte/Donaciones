@@ -50,7 +50,7 @@ public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
 
   @Override
   public QuejaDTO agregarQueja(QuejaDTO quejaDTO) {
-    String url = String.format("%s/quejas", baseUrl);
+    String url = String.format("%s/donadores/%s/quejas", baseUrl, quejaDTO.donadorID());
     return restTemplate.postForObject(url, quejaDTO, QuejaDTO.class);
   }
 
