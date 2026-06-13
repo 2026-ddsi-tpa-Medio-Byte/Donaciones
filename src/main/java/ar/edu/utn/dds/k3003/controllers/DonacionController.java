@@ -30,7 +30,7 @@ public class DonacionController {
     this.fachada = fachada;
   }
 
-    // ── Endpoints obligatorios ────────────────────────────────────────────────
+  // ── Endpoints obligatorios ────────────────────────────────────────────────
 
   @Operation(summary = "Registrar una nueva donación")
   @PostMapping("/donaciones")

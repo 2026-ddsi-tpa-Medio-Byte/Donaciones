@@ -47,7 +47,9 @@ public class Fachada implements FachadaDonaciones {
     this.donacionJpaRepository = null;
     this.productoJpaRepository = null;
     this.identificadorJpaRepository = null;
-    this.metricasService = null;
+    this.metricasService =
+        new MetricasService(new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+    ;
     this.fachadaDonadores = null;
     this.fachadaLogistica = null;
   }
@@ -133,9 +135,8 @@ public class Fachada implements FachadaDonaciones {
   }
 
   private void registrarMetricasError() {
-    
-      metricasService.incrementarDonacionesErrores();
-    
+
+    metricasService.incrementarDonacionesErrores();
   }
 
   /*------------------------------------------------------------Entrega 1--------------------------------------------------------------------------------- */
@@ -159,11 +160,12 @@ public class Fachada implements FachadaDonaciones {
         throw new RuntimeException("No puede donar");
       }
 
-      Donacion nuevaDonacion = new Donacion(
-          donacionDTO.donadorID(),
-          donacionDTO.cantidad(),
-          donacionDTO.depositoID(),
-          donacionDTO.descripcion());
+      Donacion nuevaDonacion =
+          new Donacion(
+              donacionDTO.donadorID(),
+              donacionDTO.cantidad(),
+              donacionDTO.depositoID(),
+              donacionDTO.descripcion());
 
       Donacion guardada = saveDonacion(nuevaDonacion);
 
@@ -173,15 +175,14 @@ public class Fachada implements FachadaDonaciones {
           donacionDTO.productoID(),
           donacionDTO.cantidad());
 
-    
-        metricasService.incrementarDonacionesRegistradas();
-      
+      metricasService.incrementarDonacionesRegistradas();
+
       return mapearADTO(guardada);
 
     } catch (RuntimeException e) {
-      
-        metricasService.incrementarDonacionesErrores();
-      
+
+      metricasService.incrementarDonacionesErrores();
+
       throw e;
     }
   }
@@ -200,12 +201,13 @@ public class Fachada implements FachadaDonaciones {
     }
 
     Donacion donacion =
-        findDonacionById(donacionID).orElseThrow(() -> new RuntimeException("Test: ID no encontrado"));
+        findDonacionById(donacionID)
+            .orElseThrow(() -> new RuntimeException("Test: ID no encontrado"));
     donacion.setEstado(EstadoDonacionEn.valueOf(estado.name()));
     Donacion actualizada = saveDonacion(donacion);
-    
-      metricasService.incrementarDonacionesCambioEstado();
-    
+
+    metricasService.incrementarDonacionesCambioEstado();
+
     return mapearADTO(actualizada);
   }
 
@@ -235,9 +237,9 @@ public class Fachada implements FachadaDonaciones {
     QuejaDTO quejaDTO = new QuejaDTO(null, donacionID, donacion.getDonadorId(), null, descripcion);
     this.fachadaDonadores.agregarQueja(quejaDTO);
     cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.CONQUEJA);
-    
-      metricasService.incrementarDonacionesQuejas();
-    
+
+    metricasService.incrementarDonacionesQuejas();
+
     return mapearADTO(donacion);
   }
 
@@ -275,11 +277,7 @@ public class Fachada implements FachadaDonaciones {
 
     agregarProducto(
         new ProductoDTO(
-            null,
-            "Arroz",
-            "Arroz blanco largo fino",
-            "alimentos",
-            identificadorDTO.id()));
+            null, "Arroz", "Arroz blanco largo fino", "alimentos", identificadorDTO.id()));
 
     return "Datos de prueba cargados correctamente";
   }
@@ -307,7 +305,8 @@ public class Fachada implements FachadaDonaciones {
 
   @Override
   public ProductoDTO agregarProducto(ProductoDTO dto) {
-    ar.edu.utn.dds.k3003.model.Identificador identificador = findIdentificadorById(dto.identificadorID());
+    ar.edu.utn.dds.k3003.model.Identificador identificador =
+        findIdentificadorById(dto.identificadorID());
     validarProducto(dto, identificador);
 
     ar.edu.utn.dds.k3003.model.Producto producto =

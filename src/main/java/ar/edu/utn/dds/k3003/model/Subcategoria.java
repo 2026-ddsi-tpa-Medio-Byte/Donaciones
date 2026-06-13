@@ -6,6 +6,7 @@ import jakarta.persistence.Embeddable;
 public class Subcategoria {
   private Long id;
   private String nombre;
+
   public Subcategoria() {}
 
   public Subcategoria(Long id, String nombre) {

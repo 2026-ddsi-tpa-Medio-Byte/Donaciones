@@ -17,6 +17,7 @@ public class EstadoDonacion {
 
   @Enumerated(EnumType.STRING)
   private EstadoDonacionEnum estado;
+
   private LocalDateTime fecha;
 
   public EstadoDonacion() {}

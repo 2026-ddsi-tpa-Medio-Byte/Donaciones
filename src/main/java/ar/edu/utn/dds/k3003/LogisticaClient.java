@@ -18,7 +18,8 @@ public class LogisticaClient implements FachadaLogistica {
   private final RestTemplate restTemplate;
   private final String baseUrl;
 
-  public LogisticaClient(RestTemplate restTemplate,
+  public LogisticaClient(
+      RestTemplate restTemplate,
       @Value("${APP.URL_LOGISTICA:http://localhost:8082}") String baseUrl) {
     this.restTemplate = restTemplate;
     this.baseUrl = baseUrl;
@@ -75,7 +76,8 @@ public class LogisticaClient implements FachadaLogistica {
   }
 
   @Override
-  public void setFachadaDonaciones(ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonaciones fachadaDonaciones) {
+  public void setFachadaDonaciones(
+      ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonaciones fachadaDonaciones) {
     // No aplica para el cliente HTTP
   }
 }

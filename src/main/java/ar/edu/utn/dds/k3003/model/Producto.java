@@ -10,10 +10,12 @@ public class Producto {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
   private String nombre;
   private String descripcion;
   private String categoriaID;
   private Long identificadorID;
+
   public Producto() {}
 
   public Producto(String nombre, String descripcion, String categoriaID, Long identificadorID) {

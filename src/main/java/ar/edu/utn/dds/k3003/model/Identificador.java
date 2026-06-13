@@ -16,6 +16,7 @@ public class Identificador {
 
   @Enumerated(EnumType.STRING)
   private TipoIdentificadorEnum tipo;
+
   private String descripcion;
 
   public Identificador() {}
