@@ -41,13 +41,20 @@ public class DonacionController {
   @Operation(summary = "Buscar donaciones por donador y fecha")
   @GetMapping("/donaciones")
   public ResponseEntity<List<DonacionDTO>> buscarDonaciones(
-      @RequestParam(required = false) String donadorID,
+      @RequestParam(name = "donadorID", required = false) String donadorID,
+      @RequestParam(name = "donadorId", required = false) String donadorIdAlias,
       @RequestParam(required = false) String fecha) {
-    if (donadorID == null || fecha == null) {
+    String donador = donadorID != null ? donadorID : donadorIdAlias;
+    if (donador == null || fecha == null || fecha.isBlank()) {
       return ResponseEntity.ok(fachada.buscarTodasDonaciones());
     }
-    return ResponseEntity.ok(
-        fachada.buscarPorDonadorYFechaInicio(donadorID, LocalDate.parse(fecha)));
+    try {
+      return ResponseEntity.ok(
+          fachada.buscarPorDonadorYFechaInicio(donador, LocalDate.parse(fecha)));
+    } catch (RuntimeException e) {
+      // Donador sin donaciones desde esa fecha → lista vacía en vez de 500
+      return ResponseEntity.ok(List.of());
+    }
   }
 
   @Operation(summary = "Resetear todas las donaciones, productos e identificadores")

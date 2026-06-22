@@ -165,6 +165,7 @@ public class Fachada implements FachadaDonaciones {
               donacionDTO.donadorID(),
               donacionDTO.cantidad(),
               donacionDTO.depositoID(),
+              donacionDTO.productoID(),
               donacionDTO.descripcion());
 
       Donacion guardada = saveDonacion(nuevaDonacion);
@@ -361,9 +362,9 @@ public class Fachada implements FachadaDonaciones {
     return new DonacionDTO(
         d.getId().toString(),
         d.getDonadorId(),
-        null,
+        d.getDepositoId(),
         d.getDescripcion(),
-        null,
+        d.getProductoId(),
         d.getCantidad(),
         EstadoDonacionEnum.valueOf(d.getEstado().name()));
   }

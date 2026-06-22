@@ -119,7 +119,8 @@ public class MisDonacionesTest {
     @Test
     public void testHistorialDeEstados() {
       // 1. Crear la donación (Nace como INGRESADA)
-      Donacion donacion = new Donacion("donador123", 5, "producto123", "Donación de fideos");
+      Donacion donacion =
+          new Donacion("donador123", 5, null, "producto123", "Donación de fideos");
 
       // 2. Cambiar a ACEPTADA
       fachada.cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.ACEPTADA);

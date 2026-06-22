@@ -22,6 +22,7 @@ public class Donacion {
 
   private String donadorId;
   private Integer cantidad;
+  private String depositoId;
   private String productoId;
   private String descripcion;
 
@@ -36,9 +37,11 @@ public class Donacion {
 
   public Donacion() {}
 
-  public Donacion(String donadorId, Integer cantidad, String descripcion, String productoId) {
+  public Donacion(
+      String donadorId, Integer cantidad, String depositoId, String productoId, String descripcion) {
     this.donadorId = donadorId;
     this.cantidad = cantidad;
+    this.depositoId = depositoId;
     this.productoId = productoId;
     this.descripcion = descripcion;
     this.estado = EstadoDonacionEn.INGRESADA;
@@ -102,5 +105,13 @@ public class Donacion {
 
   public void setProductoId(String productoId) {
     this.productoId = productoId;
+  }
+
+  public String getDepositoId() {
+    return depositoId;
+  }
+
+  public void setDepositoId(String depositoId) {
+    this.depositoId = depositoId;
   }
 }
