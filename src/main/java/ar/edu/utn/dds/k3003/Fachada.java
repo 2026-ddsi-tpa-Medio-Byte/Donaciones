@@ -27,6 +27,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class Fachada implements FachadaDonaciones {
 
+  private static final org.slf4j.Logger log =
+      org.slf4j.LoggerFactory.getLogger(Fachada.class);
+
   private final DonacionRepository inMemoryDonacionRepository;
   private final ProductoRepository inMemoryProductoRepository;
   private final IdentificadorRepository inMemoryIdentificadorRepository;
@@ -153,10 +156,17 @@ public class Fachada implements FachadaDonaciones {
     }
 
     try {
+      log.info(
+          "[Donaciones] Registrando donacion (donadorID={}, productoID={}, cantidad={})",
+          donacionDTO.donadorID(),
+          donacionDTO.productoID(),
+          donacionDTO.cantidad());
+
       this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
 
       if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
         metricasService.incrementarDonacionesErrores();
+        log.warn("[Donaciones] Donador {} NO puede donar, rechazando", donacionDTO.donadorID());
         throw new RuntimeException("No puede donar");
       }
 
@@ -169,6 +179,7 @@ public class Fachada implements FachadaDonaciones {
               donacionDTO.descripcion());
 
       Donacion guardada = saveDonacion(nuevaDonacion);
+      log.info("[Donaciones] Donacion guardada en BD (id={})", guardada.getId());
 
       this.fachadaLogistica.gestionarDonacion(
           donacionDTO.depositoID(),
@@ -183,6 +194,7 @@ public class Fachada implements FachadaDonaciones {
     } catch (RuntimeException e) {
 
       metricasService.incrementarDonacionesErrores();
+      log.error("[Donaciones] Error registrando donacion: {}", e.getMessage());
 
       throw e;
     }
@@ -200,6 +212,8 @@ public class Fachada implements FachadaDonaciones {
     if (estado == null) {
       throw new RuntimeException("El estado no puede ser nulo.");
     }
+
+    log.info("[Donaciones] Cambiando estado de donacion id={} -> {}", donacionID, estado);
 
     Donacion donacion =
         findDonacionById(donacionID)
@@ -232,6 +246,7 @@ public class Fachada implements FachadaDonaciones {
 
   @Override
   public DonacionDTO registrarQuejaEnDonacion(String donacionID, String descripcion) {
+    log.info("[Donaciones] Registrando queja en donacion id={}", donacionID);
     Donacion donacion =
         findDonacionById(donacionID).orElseThrow(() -> new RuntimeException("No existe"));
 

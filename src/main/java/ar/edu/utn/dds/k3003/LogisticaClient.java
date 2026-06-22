@@ -8,12 +8,16 @@ import ar.edu.utn.dds.k3003.catedra.dtos.logistica.TipoAlgoritmoEnum;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaLogistica;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 @Component
 public class LogisticaClient implements FachadaLogistica {
+
+  private static final Logger log = LoggerFactory.getLogger(LogisticaClient.class);
 
   private final RestTemplate restTemplate;
   private final String baseUrl;
@@ -33,13 +37,35 @@ public class LogisticaClient implements FachadaLogistica {
   @Override
   public DepositoDTO buscarDepositoPorID(String depositoID) {
     String url = String.format("%s/depositos/%s", baseUrl, depositoID);
-    return restTemplate.getForObject(url, DepositoDTO.class);
+    log.info("[Donaciones -> Logistica] GET deposito (depositoID={}) -> {}", depositoID, url);
+    try {
+      DepositoDTO resp = restTemplate.getForObject(url, DepositoDTO.class);
+      log.info("[Donaciones <- Logistica] deposito OK (depositoID={})", depositoID);
+      return resp;
+    } catch (RuntimeException e) {
+      log.error(
+          "[Donaciones <- Logistica] FALLO al buscar deposito (depositoID={}): {}",
+          depositoID,
+          e.getMessage());
+      throw e;
+    }
   }
 
   @Override
   public AsignacionDTO buscarAsignacionPorPaqueteID(String paqueteID) {
     String url = String.format("%s/asignaciones/%s", baseUrl, paqueteID);
-    return restTemplate.getForObject(url, AsignacionDTO.class);
+    log.info("[Donaciones -> Logistica] GET asignacion (paqueteID={}) -> {}", paqueteID, url);
+    try {
+      AsignacionDTO resp = restTemplate.getForObject(url, AsignacionDTO.class);
+      log.info("[Donaciones <- Logistica] asignacion OK (paqueteID={})", paqueteID);
+      return resp;
+    } catch (RuntimeException e) {
+      log.error(
+          "[Donaciones <- Logistica] FALLO al buscar asignacion (paqueteID={}): {}",
+          paqueteID,
+          e.getMessage());
+      throw e;
+    }
   }
 
   @Override
@@ -51,7 +77,24 @@ public class LogisticaClient implements FachadaLogistica {
     body.put("donacionID", donacionID);
     body.put("productoID", productoID);
     body.put("cantidad", cantidad);
-    return restTemplate.postForObject(url, body, DepositoDTO.class);
+    log.info(
+        "[Donaciones -> Logistica] Enviando gestionarDonacion"
+            + " (donacionID={}, depositoID={}, productoID={}, cantidad={})",
+        donacionID,
+        depositoID,
+        productoID,
+        cantidad);
+    try {
+      DepositoDTO resp = restTemplate.postForObject(url, body, DepositoDTO.class);
+      log.info("[Donaciones <- Logistica] gestionarDonacion OK (donacionID={})", donacionID);
+      return resp;
+    } catch (RuntimeException e) {
+      log.error(
+          "[Donaciones <- Logistica] FALLO gestionarDonacion (donacionID={}): {}",
+          donacionID,
+          e.getMessage());
+      throw e;
+    }
   }
 
   @Override
