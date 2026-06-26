@@ -202,6 +202,7 @@ public class Fachada implements FachadaDonaciones {
 
   @Override
   public DonacionDTO buscarDonacionPorID(String donacionID) {
+    metricasService.incrementarDonacionesConsultas();
     return findDonacionById(donacionID)
         .map(this::mapearADTO)
         .orElseThrow(() -> new RuntimeException("No existe la donación"));
@@ -228,6 +229,7 @@ public class Fachada implements FachadaDonaciones {
 
   @Override
   public List<DonacionDTO> buscarPorDonadorYFechaInicio(String donadorID, LocalDate fecha) {
+    metricasService.incrementarDonacionesConsultas();
     List<Donacion> donaciones = findDonacionesByDonador(donadorID);
 
     if (donaciones == null || donaciones.isEmpty()) {
@@ -241,6 +243,7 @@ public class Fachada implements FachadaDonaciones {
   }
 
   public List<DonacionDTO> buscarTodasDonaciones() {
+    metricasService.incrementarDonacionesConsultas();
     return findAllDonaciones().stream().map(this::mapearADTO).collect(Collectors.toList());
   }
 
@@ -308,6 +311,7 @@ public class Fachada implements FachadaDonaciones {
         identificadorJpaRepository != null
             ? identificadorJpaRepository.save(identificador)
             : inMemoryIdentificadorRepository.save(identificador);
+    metricasService.incrementarIdentificadoresRegistrados();
     return new IdentificadorDTO(
         guardado.getId().toString(), guardado.getTipo(), guardado.getDescripcion());
   }
@@ -332,6 +336,8 @@ public class Fachada implements FachadaDonaciones {
         productoJpaRepository != null
             ? productoJpaRepository.save(producto)
             : inMemoryProductoRepository.save(producto);
+
+    metricasService.incrementarProductosRegistrados();
 
     return new ProductoDTO(
         guardado.getId().toString(),

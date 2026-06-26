@@ -11,6 +11,9 @@ public class MetricasService {
   private final Counter donacionesErrores;
   private final Counter donacionesCambioEstado;
   private final Counter donacionesQuejas;
+  private final Counter donacionesConsultas;
+  private final Counter productosRegistrados;
+  private final Counter identificadoresRegistrados;
 
   public MetricasService(MeterRegistry meterRegistry) {
     this.donacionesRegistradas =
@@ -36,6 +39,24 @@ public class MetricasService {
             .description("Cantidad de quejas registradas en donaciones")
             .tag("modulo", "donaciones")
             .register(meterRegistry);
+
+    this.donacionesConsultas =
+        Counter.builder("donaciones.consultas")
+            .description("Cantidad de consultas/búsquedas de donaciones")
+            .tag("modulo", "donaciones")
+            .register(meterRegistry);
+
+    this.productosRegistrados =
+        Counter.builder("productos.registrados")
+            .description("Cantidad de productos dados de alta")
+            .tag("modulo", "donaciones")
+            .register(meterRegistry);
+
+    this.identificadoresRegistrados =
+        Counter.builder("identificadores.registrados")
+            .description("Cantidad de identificadores dados de alta")
+            .tag("modulo", "donaciones")
+            .register(meterRegistry);
   }
 
   public void incrementarDonacionesRegistradas() {
@@ -52,5 +73,17 @@ public class MetricasService {
 
   public void incrementarDonacionesQuejas() {
     donacionesQuejas.increment();
+  }
+
+  public void incrementarDonacionesConsultas() {
+    donacionesConsultas.increment();
+  }
+
+  public void incrementarProductosRegistrados() {
+    productosRegistrados.increment();
+  }
+
+  public void incrementarIdentificadoresRegistrados() {
+    identificadoresRegistrados.increment();
   }
 }
