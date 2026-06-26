@@ -323,6 +323,16 @@ public class Fachada implements FachadaDonaciones {
         identificador.getId().toString(), identificador.getTipo(), identificador.getDescripcion());
   }
 
+  public List<IdentificadorDTO> buscarTodosIdentificadores() {
+    List<ar.edu.utn.dds.k3003.model.Identificador> identificadores =
+        identificadorJpaRepository != null
+            ? identificadorJpaRepository.findAll()
+            : inMemoryIdentificadorRepository.findAll();
+    return identificadores.stream()
+        .map(i -> new IdentificadorDTO(i.getId().toString(), i.getTipo(), i.getDescripcion()))
+        .collect(Collectors.toList());
+  }
+
   @Override
   public ProductoDTO agregarProducto(ProductoDTO dto) {
     ar.edu.utn.dds.k3003.model.Identificador identificador =
@@ -356,6 +366,23 @@ public class Fachada implements FachadaDonaciones {
         producto.getDescripcion(),
         producto.getCategoriaID(),
         producto.getIdentificadorID().toString());
+  }
+
+  public List<ProductoDTO> buscarTodosProductos() {
+    List<ar.edu.utn.dds.k3003.model.Producto> productos =
+        productoJpaRepository != null
+            ? productoJpaRepository.findAll()
+            : inMemoryProductoRepository.findAll();
+    return productos.stream()
+        .map(
+            p ->
+                new ProductoDTO(
+                    p.getId().toString(),
+                    p.getNombre(),
+                    p.getDescripcion(),
+                    p.getCategoriaID(),
+                    p.getIdentificadorID().toString()))
+        .collect(Collectors.toList());
   }
 
   private void validarProducto(

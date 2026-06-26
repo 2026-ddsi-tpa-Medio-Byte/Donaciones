@@ -117,6 +117,13 @@ public class DonacionController {
     return ResponseEntity.status(HttpStatus.CREATED).body(fachada.agregarProducto(productoDTO));
   }
 
+  @Operation(summary = "Listar todos los productos")
+  @GetMapping("/productos")
+  public ResponseEntity<List<ProductoDTO>> listarProductos() {
+    log.info("[API] GET /productos");
+    return ResponseEntity.ok(fachada.buscarTodosProductos());
+  }
+
   @Operation(summary = "Buscar producto por ID")
   @GetMapping("/productos/{id}")
   public ResponseEntity<ProductoDTO> buscarProductoPorID(@PathVariable String id) {
@@ -131,6 +138,13 @@ public class DonacionController {
     log.info("[API] POST /identificadores");
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(fachada.agregarIdentificador(identificadorDTO));
+  }
+
+  @Operation(summary = "Listar todos los identificadores")
+  @GetMapping("/identificadores")
+  public ResponseEntity<List<IdentificadorDTO>> listarIdentificadores() {
+    log.info("[API] GET /identificadores");
+    return ResponseEntity.ok(fachada.buscarTodosIdentificadores());
   }
 
   @Operation(summary = "Buscar identificador por ID")

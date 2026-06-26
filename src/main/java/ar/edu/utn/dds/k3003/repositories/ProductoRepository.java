@@ -25,6 +25,10 @@ public class ProductoRepository {
         .findFirst();
   }
 
+  public List<Producto> findAll() {
+    return new ArrayList<>(this.productos);
+  }
+
   public void deleteAll() {
     this.productos.clear();
   }

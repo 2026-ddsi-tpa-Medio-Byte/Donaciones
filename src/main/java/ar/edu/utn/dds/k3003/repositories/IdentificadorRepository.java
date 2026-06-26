@@ -25,6 +25,10 @@ public class IdentificadorRepository {
         .findFirst();
   }
 
+  public List<Identificador> findAll() {
+    return new ArrayList<>(this.identificadores);
+  }
+
   public void deleteAll() {
     this.identificadores.clear();
   }
