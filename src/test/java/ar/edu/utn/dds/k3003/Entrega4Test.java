@@ -2,10 +2,13 @@ package ar.edu.utn.dds.k3003;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.IdentificadorDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.TipoIdentificadorEnum;
+import ar.edu.utn.dds.k3003.controllers.DonacionController;
 import ar.edu.utn.dds.k3003.controllers.GlobalExceptionHandler;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +65,28 @@ class Entrega4Test {
 
     List<ProductoDTO> productos = fachada.buscarTodosProductos();
     assertEquals(2, productos.size());
+  }
+
+  @Test
+  @DisplayName("Queja enviada desde Swagger (con comillas JSON) se guarda sin las comillas")
+  void quejaDesdeSwaggerSeLimpia() {
+    Fachada fachadaMock = mock(Fachada.class);
+    DonacionController controller = new DonacionController(fachadaMock);
+
+    controller.registrarQueja("1", "\"Llego en mal estado\"");
+
+    verify(fachadaMock).registrarQuejaEnDonacion("1", "Llego en mal estado");
+  }
+
+  @Test
+  @DisplayName("Queja enviada como texto plano se mantiene intacta")
+  void quejaTextoPlanoIntacta() {
+    Fachada fachadaMock = mock(Fachada.class);
+    DonacionController controller = new DonacionController(fachadaMock);
+
+    controller.registrarQueja("1", "Llego en mal estado");
+
+    verify(fachadaMock).registrarQuejaEnDonacion("1", "Llego en mal estado");
   }
 
   @Test

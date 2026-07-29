@@ -106,7 +106,23 @@ public class DonacionController {
   public ResponseEntity<DonacionDTO> registrarQueja(
       @PathVariable String id, @RequestBody String descripcion) {
     log.info("[API] POST /donaciones/{}/quejas", id);
-    return ResponseEntity.ok(fachada.registrarQuejaEnDonacion(id, descripcion));
+    return ResponseEntity.ok(fachada.registrarQuejaEnDonacion(id, limpiarTexto(descripcion)));
+  }
+
+  /**
+   * El body de la queja llega como texto plano. Si el cliente lo envía como string JSON (por
+   * ejemplo desde Swagger, que agrega comillas), se quitan las comillas envolventes para no
+   * persistirlas dentro de la descripción.
+   */
+  private String limpiarTexto(String texto) {
+    if (texto == null) {
+      return null;
+    }
+    String limpio = texto.trim();
+    if (limpio.length() >= 2 && limpio.startsWith("\"") && limpio.endsWith("\"")) {
+      limpio = limpio.substring(1, limpio.length() - 1);
+    }
+    return limpio;
   }
 
   @Operation(summary = "Agregar un producto")
