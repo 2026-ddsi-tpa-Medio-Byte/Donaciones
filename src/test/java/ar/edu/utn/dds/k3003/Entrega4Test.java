@@ -90,6 +90,42 @@ class Entrega4Test {
   }
 
   @Test
+  @DisplayName("No se puede crear un producto con un nombre ya usado")
+  void nombreDeProductoDuplicado() {
+    IdentificadorDTO id =
+        fachada.agregarIdentificador(
+            new IdentificadorDTO(null, TipoIdentificadorEnum.CODIGODEBARRAS, "codigo de barras"));
+    fachada.agregarProducto(
+        new ProductoDTO(null, "Arroz", "Arroz blanco largo fino", "alimentos", id.id()));
+
+    RuntimeException e =
+        assertThrows(
+            RuntimeException.class,
+            () ->
+                fachada.agregarProducto(
+                    new ProductoDTO(
+                        null, "Arroz", "Otra descripcion cualquiera", "alimentos", id.id())));
+
+    assertEquals("Ya existe un producto con el nombre: Arroz", e.getMessage());
+  }
+
+  @Test
+  @DisplayName("La comparación de nombres de producto ignora mayúsculas")
+  void nombreDeProductoDuplicadoIgnoraMayusculas() {
+    IdentificadorDTO id =
+        fachada.agregarIdentificador(
+            new IdentificadorDTO(null, TipoIdentificadorEnum.CODIGODEBARRAS, "codigo de barras"));
+    fachada.agregarProducto(
+        new ProductoDTO(null, "Arroz", "Arroz blanco largo fino", "alimentos", id.id()));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            fachada.agregarProducto(
+                new ProductoDTO(null, "ARROZ", "Arroz de otra marca", "alimentos", id.id())));
+  }
+
+  @Test
   @DisplayName("buscarTodosIdentificadores devuelve todos los identificadores cargados")
   void listarIdentificadores() {
     fachada.agregarIdentificador(

@@ -40,6 +40,14 @@ public class Fachada implements FachadaDonaciones {
 
   private final MetricasService metricasService;
 
+  /** Se usa para reiniciar las secuencias de IDs en el reset. Null con repositorios in-memory. */
+  @jakarta.persistence.PersistenceContext
+  private jakarta.persistence.EntityManager entityManager;
+
+  /** Determina la sintaxis SQL del reset (PostgreSQL en producción, H2 en los tests). */
+  @org.springframework.beans.factory.annotation.Value("${spring.jpa.database-platform:}")
+  private String dialecto;
+
   private FachadaLogistica fachadaLogistica;
   private FachadaDonadoresYEntidades fachadaDonadores;
 
@@ -272,16 +280,54 @@ public class Fachada implements FachadaDonaciones {
     this.fachadaLogistica = fachadaLogistica;
   }
 
+  private static final List<String> TABLAS_CON_SECUENCIA =
+      List.of("estado_donacion", "donacion", "producto", "identificador");
+
+  /**
+   * Vacía la base y reinicia las secuencias de IDs, de modo que tras un reset la numeración vuelva
+   * a empezar en 1. Un {@code deleteAll()} borra las filas pero deja la secuencia donde estaba, y
+   * las altas siguientes continuaban desde el último ID usado.
+   *
+   * <p>La sentencia depende del motor: PostgreSQL admite truncar varias tablas de una vez, mientras
+   * que H2 (usado en los tests) requiere reiniciar cada columna identidad por separado.
+   */
+  @org.springframework.transaction.annotation.Transactional
   public void resetBaseDeDatos() {
-    if (donacionJpaRepository != null) {
-      productoJpaRepository.deleteAll();
-      identificadorJpaRepository.deleteAll();
-      donacionJpaRepository.deleteAll();
+    if (donacionJpaRepository == null) {
+      inMemoryProductoRepository.deleteAll();
+      inMemoryIdentificadorRepository.deleteAll();
+      inMemoryDonacionRepository.deleteAll();
       return;
     }
-    inMemoryProductoRepository.deleteAll();
-    inMemoryIdentificadorRepository.deleteAll();
-    inMemoryDonacionRepository.deleteAll();
+
+    if (entityManager == null) {
+      borrarTodoConRepositorios();
+      return;
+    }
+
+    if (dialecto != null && dialecto.contains("PostgreSQL")) {
+      entityManager
+          .createNativeQuery(
+              "TRUNCATE TABLE " + String.join(", ", TABLAS_CON_SECUENCIA)
+                  + " RESTART IDENTITY CASCADE")
+          .executeUpdate();
+    } else {
+      borrarTodoConRepositorios();
+      entityManager.flush();
+      for (String tabla : TABLAS_CON_SECUENCIA) {
+        entityManager
+            .createNativeQuery("ALTER TABLE " + tabla + " ALTER COLUMN id RESTART WITH 1")
+            .executeUpdate();
+      }
+    }
+
+    log.info("[Donaciones] Base reseteada y secuencias de ID reiniciadas");
+  }
+
+  private void borrarTodoConRepositorios() {
+    productoJpaRepository.deleteAll();
+    identificadorJpaRepository.deleteAll();
+    donacionJpaRepository.deleteAll();
   }
 
   public String seedBaseDeDatos() {
@@ -337,6 +383,7 @@ public class Fachada implements FachadaDonaciones {
   public ProductoDTO agregarProducto(ProductoDTO dto) {
     ar.edu.utn.dds.k3003.model.Identificador identificador =
         findIdentificadorById(dto.identificadorID());
+    validarNombreDeProductoNoRepetido(dto.nombre());
     validarProducto(dto, identificador);
 
     ar.edu.utn.dds.k3003.model.Producto producto =
@@ -383,6 +430,20 @@ public class Fachada implements FachadaDonaciones {
                     p.getCategoriaID(),
                     p.getIdentificadorID().toString()))
         .collect(Collectors.toList());
+  }
+
+  /** Verifica que no exista otro producto registrado con el mismo nombre. */
+  private void validarNombreDeProductoNoRepetido(String nombre) {
+    if (nombre == null || nombre.isBlank()) {
+      throw new RuntimeException("El nombre del producto es obligatorio");
+    }
+    boolean yaExiste =
+        productoJpaRepository != null
+            ? productoJpaRepository.existsByNombreIgnoreCase(nombre.trim())
+            : inMemoryProductoRepository.existsByNombreIgnoreCase(nombre);
+    if (yaExiste) {
+      throw new RuntimeException("Ya existe un producto con el nombre: " + nombre);
+    }
   }
 
   private void validarProducto(

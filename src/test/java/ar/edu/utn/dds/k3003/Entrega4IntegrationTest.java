@@ -76,6 +76,45 @@ class Entrega4IntegrationTest {
   }
 
   @Test
+  @DisplayName("Tras el reset, las secuencias de ID vuelven a empezar en 1")
+  void resetReiniciaLasSecuencias() {
+    // Alta inicial: consume IDs de la secuencia
+    IdentificadorDTO id1 =
+        rest.postForEntity(
+                "/identificadores",
+                new IdentificadorDTO(null, TipoIdentificadorEnum.CODIGODEBARRAS, "primer codigo"),
+                IdentificadorDTO.class)
+            .getBody();
+    rest.postForEntity(
+        "/productos",
+        new ProductoDTO(null, "Lentejas", "Lentejas secas en paquete", "alimentos", id1.id()),
+        ProductoDTO.class);
+
+    // Reset de la base
+    rest.delete("/donaciones/reset");
+
+    // Alta posterior: debe volver a numerar desde 1
+    ResponseEntity<IdentificadorDTO> idResp =
+        rest.postForEntity(
+            "/identificadores",
+            new IdentificadorDTO(null, TipoIdentificadorEnum.CODIGODEBARRAS, "codigo tras reset"),
+            IdentificadorDTO.class);
+
+    assertEquals(HttpStatus.CREATED, idResp.getStatusCode());
+    assertEquals("1", idResp.getBody().id(), "la secuencia deberia reiniciarse tras el reset");
+
+    ResponseEntity<ProductoDTO> prodResp =
+        rest.postForEntity(
+            "/productos",
+            new ProductoDTO(
+                null, "Garbanzos", "Garbanzos secos en paquete", "alimentos",
+                idResp.getBody().id()),
+            ProductoDTO.class);
+
+    assertEquals("1", prodResp.getBody().id(), "la secuencia deberia reiniciarse tras el reset");
+  }
+
+  @Test
   @DisplayName("Métricas nuevas de Entrega 4 expuestas en Actuator")
   void metricasNuevasExpuestas() {
     ResponseEntity<String> metrics = rest.getForEntity("/actuator/metrics", String.class);

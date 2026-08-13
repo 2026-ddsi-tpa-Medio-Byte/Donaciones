@@ -29,6 +29,14 @@ public class ProductoRepository {
     return new ArrayList<>(this.productos);
   }
 
+  public boolean existsByNombreIgnoreCase(String nombre) {
+    if (nombre == null) {
+      return false;
+    }
+    return this.productos.stream()
+        .anyMatch(p -> p.getNombre() != null && p.getNombre().equalsIgnoreCase(nombre.trim()));
+  }
+
   public void deleteAll() {
     this.productos.clear();
   }
