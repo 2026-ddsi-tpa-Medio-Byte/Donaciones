@@ -220,7 +220,7 @@ public class Fachada implements FachadaDonaciones {
     metricasService.incrementarDonacionesConsultas();
     return findDonacionById(donacionID)
         .map(this::mapearADTO)
-        .orElseThrow(() -> new RuntimeException("No existe la donación"));
+        .orElseThrow(() -> new NoSuchElementException("No existe la donación: " + donacionID));
   }
 
   @Override
@@ -233,7 +233,7 @@ public class Fachada implements FachadaDonaciones {
 
     Donacion donacion =
         findDonacionById(donacionID)
-            .orElseThrow(() -> new RuntimeException("Test: ID no encontrado"));
+            .orElseThrow(() -> new NoSuchElementException("No existe la donación: " + donacionID));
     donacion.setEstado(EstadoDonacionEn.valueOf(estado.name()));
     Donacion actualizada = saveDonacion(donacion);
 
@@ -266,7 +266,8 @@ public class Fachada implements FachadaDonaciones {
   public DonacionDTO registrarQuejaEnDonacion(String donacionID, String descripcion) {
     log.info("[Donaciones] Registrando queja en donacion id={}", donacionID);
     Donacion donacion =
-        findDonacionById(donacionID).orElseThrow(() -> new RuntimeException("No existe"));
+        findDonacionById(donacionID)
+            .orElseThrow(() -> new NoSuchElementException("No existe la donación: " + donacionID));
 
     QuejaDTO quejaDTO = new QuejaDTO(null, donacionID, donacion.getDonadorId(), null, descripcion);
     this.fachadaDonadores.agregarQueja(quejaDTO);

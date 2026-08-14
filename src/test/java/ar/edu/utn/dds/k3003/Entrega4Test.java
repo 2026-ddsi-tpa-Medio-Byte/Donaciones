@@ -146,6 +146,21 @@ class Entrega4Test {
   }
 
   @Test
+  @DisplayName("Buscar una donación inexistente da 404, no 400")
+  void donacionInexistenteEs404() {
+    // Antes lanzaba RuntimeException genérica y el handler devolvía 400: una donación que no
+    // existe tiene que responder 404 para que los otros módulos distingan "no está" de "pediste mal".
+    assertThrows(NoSuchElementException.class, () -> fachada.buscarDonacionPorID("999999"));
+    assertThrows(
+        NoSuchElementException.class,
+        () ->
+            fachada.cambiarEstadoDeDonacion(
+                "999999", ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum.ACEPTADA));
+    assertThrows(
+        NoSuchElementException.class, () -> fachada.registrarQuejaEnDonacion("999999", "queja"));
+  }
+
+  @Test
   @DisplayName("buscarTodosIdentificadores devuelve todos los identificadores cargados")
   void listarIdentificadores() {
     fachada.agregarIdentificador(
