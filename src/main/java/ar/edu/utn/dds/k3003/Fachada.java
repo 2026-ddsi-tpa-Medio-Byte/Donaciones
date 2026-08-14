@@ -150,6 +150,29 @@ public class Fachada implements FachadaDonaciones {
     metricasService.incrementarDonacionesErrores();
   }
 
+  /**
+   * Ejecuta una llamada a otro módulo midiéndola: cuenta si salió bien o mal y cuánto tardó.
+   *
+   * <p>Sirve para poder ver, desde Datadog, el efecto dominó de cada operación: agrupando por la
+   * etiqueta {@code operacion} se ve a qué módulos salimos a pegarle en cada POST y con qué
+   * resultado. No cambia el comportamiento: la excepción se vuelve a lanzar tal cual.
+   */
+  private <T> T medirLlamada(
+      String operacion, String destino, String accion, java.util.function.Supplier<T> llamada) {
+    long inicio = System.nanoTime();
+    try {
+      T resultado = llamada.get();
+      metricasService.registrarLlamadaSaliente(
+          operacion, destino, accion, true, System.nanoTime() - inicio);
+      return resultado;
+    } catch (RuntimeException e) {
+      metricasService.registrarLlamadaSaliente(
+          operacion, destino, accion, false, System.nanoTime() - inicio);
+      log.warn("[Donaciones -> {}] fallo {}: {}", destino, accion, e.getMessage());
+      throw e;
+    }
+  }
+
   /*------------------------------------------------------------Entrega 1--------------------------------------------------------------------------------- */
 
   public DonacionDTO registrarDonacion(DonacionDTO donacionDTO) {
@@ -184,9 +207,20 @@ public class Fachada implements FachadaDonaciones {
         findProductoById(donacionDTO.productoID());
       }
 
-      this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
+      medirLlamada(
+          "registrar_donacion",
+          "donadores",
+          "validar_donador",
+          () -> this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID()));
 
-      if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
+      boolean puedeDonar =
+          medirLlamada(
+              "registrar_donacion",
+              "donadores",
+              "puede_donar",
+              () -> this.fachadaDonadores.puedeDonar(donacionDTO.donadorID()));
+
+      if (!puedeDonar) {
         metricasService.incrementarDonacionesErrores();
         log.warn("[Donaciones] Donador {} NO puede donar, rechazando", donacionDTO.donadorID());
         throw new RuntimeException("No puede donar");
@@ -203,11 +237,18 @@ public class Fachada implements FachadaDonaciones {
       Donacion guardada = saveDonacion(nuevaDonacion);
       log.info("[Donaciones] Donacion guardada en BD (id={})", guardada.getId());
 
-      this.fachadaLogistica.gestionarDonacion(
-          donacionDTO.depositoID(),
-          guardada.getId().toString(),
-          donacionDTO.productoID(),
-          donacionDTO.cantidad());
+      medirLlamada(
+          "registrar_donacion",
+          "logistica",
+          "gestionar_donacion",
+          () -> {
+            this.fachadaLogistica.gestionarDonacion(
+                donacionDTO.depositoID(),
+                guardada.getId().toString(),
+                donacionDTO.productoID(),
+                donacionDTO.cantidad());
+            return null;
+          });
 
       metricasService.incrementarDonacionesRegistradas();
 
@@ -277,7 +318,11 @@ public class Fachada implements FachadaDonaciones {
             .orElseThrow(() -> new NoSuchElementException("No existe la donación: " + donacionID));
 
     QuejaDTO quejaDTO = new QuejaDTO(null, donacionID, donacion.getDonadorId(), null, descripcion);
-    this.fachadaDonadores.agregarQueja(quejaDTO);
+    medirLlamada(
+        "registrar_queja",
+        "donadores",
+        "agregar_queja",
+        () -> this.fachadaDonadores.agregarQueja(quejaDTO));
     cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.CONQUEJA);
 
     metricasService.incrementarDonacionesQuejas();
