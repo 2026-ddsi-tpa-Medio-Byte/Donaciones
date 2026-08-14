@@ -90,6 +90,26 @@ class Entrega4Test {
   }
 
   @Test
+  @DisplayName("No se puede donar una cantidad de 0 o negativa")
+  void cantidadInvalidaEnDonacion() {
+    ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO cero =
+        new ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO(
+            null, "1", "DEP-1", "cantidad cero", "1", 0, null);
+    ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO negativa =
+        new ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO(
+            null, "1", "DEP-1", "cantidad negativa", "1", -5, null);
+    ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO nula =
+        new ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO(
+            null, "1", "DEP-1", "cantidad nula", "1", null, null);
+
+    for (var dto : java.util.List.of(cero, negativa, nula)) {
+      RuntimeException e =
+          assertThrows(RuntimeException.class, () -> fachada.registrarDonacion(dto));
+      assertEquals("La cantidad donada debe ser mayor a 0", e.getMessage());
+    }
+  }
+
+  @Test
   @DisplayName("No se puede crear un producto con un nombre ya usado")
   void nombreDeProductoDuplicado() {
     IdentificadorDTO id =

@@ -163,6 +163,13 @@ public class Fachada implements FachadaDonaciones {
       throw new RuntimeException("La donación ya tiene un ID asignado.");
     }
 
+    // La consigna pide que la cantidad donada sea mayor a 0: sin esta validación se
+    // registraban donaciones de 0 o negativas que después Logística tenía que descartar.
+    if (donacionDTO.cantidad() == null || donacionDTO.cantidad() <= 0) {
+      metricasService.incrementarDonacionesErrores();
+      throw new RuntimeException("La cantidad donada debe ser mayor a 0");
+    }
+
     try {
       log.info(
           "[Donaciones] Registrando donacion (donadorID={}, productoID={}, cantidad={})",
