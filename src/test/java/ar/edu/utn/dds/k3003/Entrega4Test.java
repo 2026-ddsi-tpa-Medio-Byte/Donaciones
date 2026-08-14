@@ -146,6 +146,16 @@ class Entrega4Test {
   }
 
   @Test
+  @DisplayName("No se puede donar contra un producto que no existe")
+  void donacionConProductoInexistente() {
+    ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO dto =
+        new ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO(
+            null, "1", "DEP-1", "producto fantasma", "999999", 5, null);
+
+    assertThrows(NoSuchElementException.class, () -> fachada.registrarDonacion(dto));
+  }
+
+  @Test
   @DisplayName("Buscar una donación inexistente da 404, no 400")
   void donacionInexistenteEs404() {
     // Antes lanzaba RuntimeException genérica y el handler devolvía 400: una donación que no

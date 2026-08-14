@@ -38,9 +38,28 @@ public class MisDonacionesTest {
     fachada.setFachadaDonadoresYEntidades(mockDonadores);
     fachada.setFachadaLogistica(mockLogistica);
 
+    // La donación se registra contra un producto que existe de verdad: la fachada valida
+    // que el productoID exista antes de mandarle nada a Logística.
+    var identificador =
+        fachada.agregarIdentificador(
+            new ar.edu.utn.dds.k3003.catedra.dtos.donaciones.IdentificadorDTO(
+                null,
+                ar.edu.utn.dds.k3003.catedra.dtos.donaciones.TipoIdentificadorEnum.CODIGODEBARRAS,
+                "codigo de barras"));
+    var producto =
+        fachada.agregarProducto(
+            new ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO(
+                null, "Fideos", "Fideos secos tipo tirabuzon", "alimentos", identificador.id()));
+
     dtoEjemplo =
         new DonacionDTO(
-            null, "donador1", "deposito1", "Desc", "prod1", 5, EstadoDonacionEnum.INGRESADA);
+            null,
+            "donador1",
+            "deposito1",
+            "Desc",
+            producto.id(),
+            5,
+            EstadoDonacionEnum.INGRESADA);
   }
 
   @Test

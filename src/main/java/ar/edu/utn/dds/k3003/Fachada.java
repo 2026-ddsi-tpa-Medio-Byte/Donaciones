@@ -177,6 +177,13 @@ public class Fachada implements FachadaDonaciones {
           donacionDTO.productoID(),
           donacionDTO.cantidad());
 
+      // Donadores ya valida el producto al registrar una necesidad; acá faltaba el mismo
+      // control: sin esto se donaba contra un productoID inexistente y el fantasma llegaba
+      // hasta Logística, que después no podía asignarlo a ninguna necesidad.
+      if (donacionDTO.productoID() != null) {
+        findProductoById(donacionDTO.productoID());
+      }
+
       this.fachadaDonadores.buscarDonadorPorID(donacionDTO.donadorID());
 
       if (!this.fachadaDonadores.puedeDonar(donacionDTO.donadorID())) {
