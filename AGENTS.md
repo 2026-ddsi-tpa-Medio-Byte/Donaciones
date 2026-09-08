@@ -51,7 +51,7 @@ MetricasService                 contadores y métricas de integración
 ## Swagger
 
 Los endpoints se agrupan por para qué sirven, con `@Tag` a **nivel de método**:
-`1 · Flujo principal`, `2 · Precondiciones`, `3 · Consultas`, `4 · Administración`.
+`Flujo principal`, `Administración`, `Precondiciones`, `Consultas` (sin descripciones ni números en los tags).
 Si la clase también tuviera `@Tag`, cada endpoint aparecería duplicado.
 
 ## Antes de terminar un cambio

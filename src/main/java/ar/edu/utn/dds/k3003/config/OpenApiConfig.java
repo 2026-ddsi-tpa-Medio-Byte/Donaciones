@@ -23,21 +23,9 @@ import org.springframework.context.annotation.Configuration;
                     + "en el sistema: primero los de los flujos principales, después los de "
                     + "preparación y consulta."),
     tags = {
-      @Tag(
-          name = "1 · Flujo principal",
-          description =
-              "Las operaciones que atraviesan varios módulos: registrar una donación, cambiarle "
-                  + "el estado cuando Logística reporta la entrega, y registrar una queja."),
-      @Tag(
-          name = "2 · Precondiciones",
-          description =
-              "Lo que hay que cargar antes de poder ejecutar un flujo: identificadores y "
-                  + "productos."),
-      @Tag(
-          name = "3 · Consultas",
-          description = "Solo lectura. Para verificar el estado de la base durante una prueba."),
-      @Tag(
-          name = "4 · Administración",
-          description = "Utilidades de la base: vaciarla o dejarla con datos de ejemplo.")
+      @Tag(name = "Flujo principal"),
+      @Tag(name = "Administración"),
+      @Tag(name = "Precondiciones"),
+      @Tag(name = "Consultas")
     })
 public class OpenApiConfig {}

@@ -36,7 +36,7 @@ public class DonacionController {
   // ── Endpoints obligatorios ────────────────────────────────────────────────
 
   @Operation(summary = "Registrar una nueva donación")
-  @Tag(name = "1 · Flujo principal")
+  @Tag(name = "Flujo principal")
   @PostMapping("/donaciones")
   public ResponseEntity<DonacionDTO> registrarDonacion(@RequestBody DonacionDTO donacionDTO) {
     log.info(
@@ -48,7 +48,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Buscar donaciones por donador y fecha")
-  @Tag(name = "3 · Consultas")
+  @Tag(name = "Consultas")
   @GetMapping("/donaciones")
   public ResponseEntity<List<DonacionDTO>> buscarDonaciones(
       @RequestParam(name = "donadorID", required = false) String donadorID,
@@ -71,7 +71,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Resetear todas las donaciones, productos e identificadores")
-  @Tag(name = "4 · Administración")
+  @Tag(name = "Administración")
   @DeleteMapping("/donaciones/reset")
   public ResponseEntity<String> resetDonaciones() {
     log.info("[API] DELETE /donaciones/reset");
@@ -80,7 +80,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Cargar datos de prueba en la base de datos")
-  @Tag(name = "4 · Administración")
+  @Tag(name = "Administración")
   @PostMapping("/seed")
   public ResponseEntity<String> seedBaseDeDatos() {
     log.info("[API] POST /seed");
@@ -88,7 +88,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Buscar donación por ID")
-  @Tag(name = "3 · Consultas")
+  @Tag(name = "Consultas")
   @GetMapping("/donaciones/{id}")
   public ResponseEntity<DonacionDTO> buscarDonacionPorID(@PathVariable String id) {
     log.info("[API] GET /donaciones/{}", id);
@@ -98,7 +98,7 @@ public class DonacionController {
   // ── Endpoints adicionales ─────────────────────────────────────────────────
 
   @Operation(summary = "Cambiar estado de una donación")
-  @Tag(name = "1 · Flujo principal")
+  @Tag(name = "Flujo principal")
   @PatchMapping("/donaciones/{id}/estado")
   public ResponseEntity<DonacionDTO> cambiarEstado(
       @PathVariable String id, @RequestBody EstadoDonacionEnum estado) {
@@ -107,7 +107,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Registrar queja en una donación")
-  @Tag(name = "1 · Flujo principal")
+  @Tag(name = "Flujo principal")
   @PostMapping("/donaciones/{id}/quejas")
   public ResponseEntity<DonacionDTO> registrarQueja(
       @PathVariable String id, @RequestBody String descripcion) {
@@ -132,7 +132,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Agregar un producto")
-  @Tag(name = "2 · Precondiciones")
+  @Tag(name = "Precondiciones")
   @PostMapping("/productos")
   public ResponseEntity<ProductoDTO> agregarProducto(@RequestBody ProductoDTO productoDTO) {
     log.info(
@@ -141,7 +141,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Listar todos los productos")
-  @Tag(name = "3 · Consultas")
+  @Tag(name = "Consultas")
   @GetMapping("/productos")
   public ResponseEntity<List<ProductoDTO>> listarProductos() {
     log.info("[API] GET /productos");
@@ -149,7 +149,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Buscar producto por ID")
-  @Tag(name = "3 · Consultas")
+  @Tag(name = "Consultas")
   @GetMapping("/productos/{id}")
   public ResponseEntity<ProductoDTO> buscarProductoPorID(@PathVariable String id) {
     log.info("[API] GET /productos/{}", id);
@@ -157,7 +157,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Agregar un identificador")
-  @Tag(name = "2 · Precondiciones")
+  @Tag(name = "Precondiciones")
   @PostMapping("/identificadores")
   public ResponseEntity<IdentificadorDTO> agregarIdentificador(
       @RequestBody IdentificadorDTO identificadorDTO) {
@@ -167,7 +167,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Listar todos los identificadores")
-  @Tag(name = "3 · Consultas")
+  @Tag(name = "Consultas")
   @GetMapping("/identificadores")
   public ResponseEntity<List<IdentificadorDTO>> listarIdentificadores() {
     log.info("[API] GET /identificadores");
@@ -175,7 +175,7 @@ public class DonacionController {
   }
 
   @Operation(summary = "Buscar identificador por ID")
-  @Tag(name = "3 · Consultas")
+  @Tag(name = "Consultas")
   @GetMapping("/identificadores/{id}")
   public ResponseEntity<IdentificadorDTO> buscarIdentificadorPorID(@PathVariable String id) {
     log.info("[API] GET /identificadores/{}", id);
