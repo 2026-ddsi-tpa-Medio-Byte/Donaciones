@@ -44,4 +44,12 @@ public class DonacionRepository {
   public void deleteAll() {
     this.donaciones.clear();
   }
+
+  /**
+   * Borra todas las apariciones: {@code save} vuelve a agregar la misma donación cada vez que se
+   * actualiza, así que puede estar más de una vez en la lista.
+   */
+  public void deleteById(Long id) {
+    this.donaciones.removeIf(d -> id != null && id.equals(d.getId()));
+  }
 }

@@ -3,18 +3,24 @@ package ar.edu.utn.dds.k3003;
 import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.*;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaIncentivos;
+import ar.edu.utn.dds.k3003.exceptions.DonadorNoEncontradoException;
+import ar.edu.utn.dds.k3003.exceptions.ModuloNoDisponibleException;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
 public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
 
   private static final Logger log = LoggerFactory.getLogger(DonadoresYEntidadesClient.class);
+
+  /** Nombre con el que aparece en los mensajes de error que llegan a quien llamó. */
+  private static final String MODULO = "Donadores y Entidades";
 
   private final RestTemplate restTemplate;
   private final String baseUrl;
@@ -45,8 +51,20 @@ public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
           "[Donaciones <- Donadores] FALLO al buscar donador (donadorID={}): {}",
           donadorID,
           e.getMessage());
-      throw e;
+      throw traducir(e, donadorID);
     }
+  }
+
+  /**
+   * Pasa los errores HTTP de Donadores a excepciones del dominio. Sin esto, un donador inexistente
+   * salía como 400 con el texto crudo «404 Not Found: ...», y una caída de Donadores se confundía
+   * con un pedido mal hecho.
+   */
+  private RuntimeException traducir(RuntimeException e, String donadorID) {
+    if (e instanceof HttpClientErrorException.NotFound) {
+      return new DonadorNoEncontradoException("No existe el donador " + donadorID);
+    }
+    return ModuloNoDisponibleException.siEsCaida(MODULO, e);
   }
 
   @Override
@@ -83,7 +101,7 @@ public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
           "[Donaciones <- Donadores] FALLO agregarQueja (donadorID={}): {}",
           quejaDTO.donadorID(),
           e.getMessage());
-      throw e;
+      throw traducir(e, quejaDTO.donadorID());
     }
   }
 
@@ -107,7 +125,7 @@ public class DonadoresYEntidadesClient implements FachadaDonadoresYEntidades {
           "[Donaciones <- Donadores] FALLO puede-donar (donadorID={}): {}",
           donadorID,
           e.getMessage());
-      throw e;
+      throw traducir(e, donadorID);
     }
   }
 

@@ -8,6 +8,9 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.QuejaDTO;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonaciones;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaLogistica;
+import ar.edu.utn.dds.k3003.exceptions.DatoInvalidoException;
+import ar.edu.utn.dds.k3003.exceptions.DonacionNoQuejableException;
+import ar.edu.utn.dds.k3003.exceptions.DonadorNoHabilitadoException;
 import ar.edu.utn.dds.k3003.model.Donacion;
 import ar.edu.utn.dds.k3003.model.EstadoDonacionEn;
 import ar.edu.utn.dds.k3003.repositories.DonacionJpaRepository;
@@ -102,6 +105,14 @@ public class Fachada implements FachadaDonaciones {
     return inMemoryDonacionRepository.save(donacion);
   }
 
+  private void deleteDonacionById(Long id) {
+    if (donacionJpaRepository != null) {
+      donacionJpaRepository.deleteById(id);
+      return;
+    }
+    inMemoryDonacionRepository.deleteById(id);
+  }
+
   private Optional<Donacion> findDonacionById(String id) {
     if (donacionJpaRepository != null) {
       return parseLongId(id).flatMap(donacionJpaRepository::findById);
@@ -145,11 +156,6 @@ public class Fachada implements FachadaDonaciones {
         .orElseThrow(() -> new NoSuchElementException("Producto no encontrado: " + id));
   }
 
-  private void registrarMetricasError() {
-
-    metricasService.incrementarDonacionesErrores();
-  }
-
   /**
    * Ejecuta una llamada a otro módulo midiéndola: cuenta si salió bien o mal y cuánto tardó.
    *
@@ -176,24 +182,12 @@ public class Fachada implements FachadaDonaciones {
   /*------------------------------------------------------------Entrega 1--------------------------------------------------------------------------------- */
 
   public DonacionDTO registrarDonacion(DonacionDTO donacionDTO) {
-    if (donacionDTO == null) {
-      metricasService.incrementarDonacionesErrores();
-      throw new RuntimeException("DTO nulo");
-    }
-
-    if (donacionDTO.id() != null) {
-      metricasService.incrementarDonacionesErrores();
-      throw new RuntimeException("La donación ya tiene un ID asignado.");
-    }
-
-    // La consigna pide que la cantidad donada sea mayor a 0: sin esta validación se
-    // registraban donaciones de 0 o negativas que después Logística tenía que descartar.
-    if (donacionDTO.cantidad() == null || donacionDTO.cantidad() <= 0) {
-      metricasService.incrementarDonacionesErrores();
-      throw new RuntimeException("La cantidad donada debe ser mayor a 0");
-    }
-
+    // Todo el registro va dentro del try para que cada fallo cuente exactamente un error: antes
+    // las validaciones sumaban el suyo y el catch volvía a sumar el mismo, así que un
+    // "No puede donar" contaba doble en la alarma de donaciones rechazadas.
     try {
+      validarDatosDeDonacion(donacionDTO);
+
       log.info(
           "[Donaciones] Registrando donacion (donadorID={}, productoID={}, cantidad={})",
           donacionDTO.donadorID(),
@@ -203,9 +197,7 @@ public class Fachada implements FachadaDonaciones {
       // Donadores ya valida el producto al registrar una necesidad; acá faltaba el mismo
       // control: sin esto se donaba contra un productoID inexistente y el fantasma llegaba
       // hasta Logística, que después no podía asignarlo a ninguna necesidad.
-      if (donacionDTO.productoID() != null) {
-        findProductoById(donacionDTO.productoID());
-      }
+      findProductoById(donacionDTO.productoID());
 
       medirLlamada(
           "registrar_donacion",
@@ -221,9 +213,11 @@ public class Fachada implements FachadaDonaciones {
               () -> this.fachadaDonadores.puedeDonar(donacionDTO.donadorID()));
 
       if (!puedeDonar) {
-        metricasService.incrementarDonacionesErrores();
         log.warn("[Donaciones] Donador {} NO puede donar, rechazando", donacionDTO.donadorID());
-        throw new RuntimeException("No puede donar");
+        throw new DonadorNoHabilitadoException(
+            "No puede donar: el donador "
+                + donacionDTO.donadorID()
+                + " no está habilitado para donar");
       }
 
       Donacion nuevaDonacion =
@@ -237,18 +231,7 @@ public class Fachada implements FachadaDonaciones {
       Donacion guardada = saveDonacion(nuevaDonacion);
       log.info("[Donaciones] Donacion guardada en BD (id={})", guardada.getId());
 
-      medirLlamada(
-          "registrar_donacion",
-          "logistica",
-          "gestionar_donacion",
-          () -> {
-            this.fachadaLogistica.gestionarDonacion(
-                donacionDTO.depositoID(),
-                guardada.getId().toString(),
-                donacionDTO.productoID(),
-                donacionDTO.cantidad());
-            return null;
-          });
+      avisarALogisticaOCompensar(donacionDTO, guardada);
 
       metricasService.incrementarDonacionesRegistradas();
 
@@ -261,6 +244,94 @@ public class Fachada implements FachadaDonaciones {
 
       throw e;
     }
+  }
+
+  /**
+   * Controles locales, antes de llamar a cualquier otro módulo: un pedido incompleto no tiene por
+   * qué despertar a Donadores ni a Logística. El depósito no se valida contra Logística porque
+   * hoy responde 500 en vez de 404 cuando no existe.
+   */
+  private void validarDatosDeDonacion(DonacionDTO donacionDTO) {
+    if (donacionDTO == null) {
+      throw new DatoInvalidoException("DTO nulo");
+    }
+
+    if (donacionDTO.id() != null) {
+      throw new DatoInvalidoException("La donación ya tiene un ID asignado.");
+    }
+
+    // Sin estos tres, la donación se guardaba igual y el hueco aparecía recién en Logística
+    // (o nunca, si el productoID venía null y se salteaba la validación del producto).
+    exigirCampo(donacionDTO.donadorID(), "donadorID");
+    exigirCampo(donacionDTO.depositoID(), "depositoID");
+    exigirCampo(donacionDTO.productoID(), "productoID");
+
+    // La consigna pide que la cantidad donada sea mayor a 0: sin esta validación se
+    // registraban donaciones de 0 o negativas que después Logística tenía que descartar.
+    if (donacionDTO.cantidad() == null || donacionDTO.cantidad() <= 0) {
+      throw new DatoInvalidoException("La cantidad donada debe ser mayor a 0");
+    }
+  }
+
+  private void exigirCampo(String valor, String campo) {
+    if (valor == null || valor.isBlank()) {
+      throw new DatoInvalidoException("El campo " + campo + " es obligatorio");
+    }
+  }
+
+  /**
+   * Le avisa a Logística de la donación recién guardada y, si el aviso falla, la borra.
+   *
+   * <p>Se guarda antes de avisar porque Logística necesita el ID. Deshacer con
+   * {@code @Transactional} no alcanza: la llamada HTTP no forma parte de la transacción de la
+   * base y un rollback no la revierte. Por eso es una compensación explícita. Sin ella, si
+   * Logística fallaba el cliente recibía un error pero la donación quedaba INGRESADA para siempre,
+   * sin ninguna asignación que la hiciera avanzar.
+   *
+   * <p>Riesgo que queda: si Logística sí procesó el pedido y lo que se perdió fue la respuesta
+   * (un timeout), del otro lado queda una asignación que apunta a una donación que acá ya no
+   * existe. Por eso se loguea en ERROR con el ID, para poder reconciliar a mano.
+   */
+  private void avisarALogisticaOCompensar(DonacionDTO donacionDTO, Donacion guardada) {
+    try {
+      medirLlamada(
+          "registrar_donacion",
+          "logistica",
+          "gestionar_donacion",
+          () -> {
+            this.fachadaLogistica.gestionarDonacion(
+                donacionDTO.depositoID(),
+                guardada.getId().toString(),
+                donacionDTO.productoID(),
+                donacionDTO.cantidad());
+            return null;
+          });
+    } catch (RuntimeException falloDeLogistica) {
+      compensarAlta(guardada.getId(), falloDeLogistica);
+      throw falloDeLogistica;
+    }
+  }
+
+  private void compensarAlta(Long donacionId, RuntimeException falloDeLogistica) {
+    try {
+      deleteDonacionById(donacionId);
+    } catch (RuntimeException falloAlBorrar) {
+      // Se informa y se sigue: quien llamó tiene que enterarse de lo de Logística, que es la
+      // causa, no de este segundo problema.
+      log.error(
+          "[Donaciones] No se pudo deshacer la donacion id={} despues del fallo de Logistica"
+              + " ({}): quedo INGRESADA sin asignacion, revisar a mano",
+          donacionId,
+          falloAlBorrar.getMessage());
+      return;
+    }
+    log.error(
+        "[Donaciones] Logistica fallo al recibir la donacion id={} ({}); se borro para no dejarla"
+            + " huerfana. Si Logistica llego a procesarla (por ejemplo, un timeout), queda una"
+            + " asignacion con donacionID={} sin donacion: reconciliar",
+        donacionId,
+        falloDeLogistica.getMessage(),
+        donacionId);
   }
 
   @Override
@@ -282,7 +353,9 @@ public class Fachada implements FachadaDonaciones {
     Donacion donacion =
         findDonacionById(donacionID)
             .orElseThrow(() -> new NoSuchElementException("No existe la donación: " + donacionID));
-    donacion.setEstado(EstadoDonacionEn.valueOf(estado.name()));
+    // setHistorialEstados y no setEstado: además del estado deja la entrada en el historial de
+    // auditoría, que si no quedaba solo con el INGRESADA inicial.
+    donacion.setHistorialEstados(EstadoDonacionEn.valueOf(estado.name()));
     Donacion actualizada = saveDonacion(donacion);
 
     metricasService.incrementarDonacionesCambioEstado();
@@ -299,8 +372,26 @@ public class Fachada implements FachadaDonaciones {
       throw new RuntimeException("No hay donaciones para el donador: " + donadorID);
     }
 
+    return desdeLaFecha(donaciones, fecha);
+  }
+
+  /**
+   * Las donaciones de un donador, opcionalmente desde una fecha. Es la que usa el endpoint.
+   *
+   * <p>A diferencia de {@link #buscarPorDonadorYFechaInicio}, que por contrato de cátedra lanza
+   * excepción si el donador no donó nunca, acá «no donó nada» es una respuesta válida: lista
+   * vacía. Así el controller no tiene que capturar excepciones genéricas para distinguirlo.
+   *
+   * @param desde null para traerlas todas, sin filtrar por fecha
+   */
+  public List<DonacionDTO> buscarDonacionesDeDonador(String donadorID, LocalDate desde) {
+    metricasService.incrementarDonacionesConsultas();
+    return desdeLaFecha(findDonacionesByDonador(donadorID), desde);
+  }
+
+  private List<DonacionDTO> desdeLaFecha(List<Donacion> donaciones, LocalDate desde) {
     return donaciones.stream()
-        .filter(d -> !d.getFecha().toLocalDate().isBefore(fecha))
+        .filter(d -> desde == null || !d.getFecha().toLocalDate().isBefore(desde))
         .map(this::mapearADTO)
         .collect(Collectors.toList());
   }
@@ -317,17 +408,57 @@ public class Fachada implements FachadaDonaciones {
         findDonacionById(donacionID)
             .orElseThrow(() -> new NoSuchElementException("No existe la donación: " + donacionID));
 
+    // La descripción va antes que el estado: un pedido mal armado es 400 sea cual sea el estado.
+    // Y se controla acá aunque Donadores también la rechace: así no se gasta una llamada, y quien
+    // llama recibe un mensaje limpio en vez del «400 Bad Request: ...» crudo de Donadores.
+    if (descripcion == null || descripcion.isBlank()) {
+      throw new DatoInvalidoException("La queja tiene que tener una descripción");
+    }
+
+    // Se controla antes de llamar a Donadores, para que una queja que acá se rechaza no le quede
+    // sumada al donador del otro lado.
+    validarQueSeaQuejable(donacion);
+
     QuejaDTO quejaDTO = new QuejaDTO(null, donacionID, donacion.getDonadorId(), null, descripcion);
     medirLlamada(
         "registrar_queja",
         "donadores",
         "agregar_queja",
         () -> this.fachadaDonadores.agregarQueja(quejaDTO));
-    cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.CONQUEJA);
+    // El estado cambia recién después de que Donadores aceptó la queja: si Donadores falla, la
+    // donación tiene que seguir ACEPTADA (lo exige testRegistrarQuejaFallido de cátedra).
+    DonacionDTO actualizada =
+        cambiarEstadoDeDonacion(donacion.getId().toString(), EstadoDonacionEnum.CONQUEJA);
 
     metricasService.incrementarDonacionesQuejas();
 
-    return mapearADTO(donacion);
+    // Se devuelve lo que quedó guardado y no la entidad leída al principio: con JPA esa es otra
+    // instancia, y la respuesta mostraba ACEPTADA aunque la donación ya estuviera CONQUEJA.
+    return actualizada;
+  }
+
+  /**
+   * La consigna pide quejas sobre donaciones ya entregadas, y entregada es ACEPTADA: el estado
+   * que pone Logística al reportar la entrega. Una CONQUEJA ya tiene su queja; aceptar otra
+   * sumaría dos quejas al donador por la misma donación.
+   */
+  private void validarQueSeaQuejable(Donacion donacion) {
+    EstadoDonacionEn estado = donacion.getEstado();
+    if (estado == EstadoDonacionEn.ACEPTADA) {
+      return;
+    }
+    String motivo =
+        estado == EstadoDonacionEn.CONQUEJA
+            ? "ya tiene una queja registrada"
+            : "todavía no fue entregada";
+    throw new DonacionNoQuejableException(
+        "No se puede registrar la queja: la donación "
+            + donacion.getId()
+            + " "
+            + motivo
+            + " (estado actual: "
+            + estado
+            + "). Solo se aceptan quejas sobre donaciones entregadas (ACEPTADA).");
   }
 
   @Override

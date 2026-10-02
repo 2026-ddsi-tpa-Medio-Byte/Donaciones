@@ -46,9 +46,11 @@ class Entrega4Test {
   @Test
   @DisplayName("GlobalExceptionHandler mapea RuntimeException a HTTP 400")
   void handlerMapeaRuntimeA400() {
+    // «No puede donar» ya no es un RuntimeException genérico (sale 403, ver CodigosHttpTest):
+    // acá se usa otra regla de negocio para seguir probando el caso por defecto.
     GlobalExceptionHandler handler = new GlobalExceptionHandler();
     ResponseEntity<Map<String, String>> resp =
-        handler.handleRuntime(new RuntimeException("No puede donar"));
+        handler.handleRuntime(new RuntimeException("Ya existe un producto con el nombre: Arroz"));
     assertEquals(400, resp.getStatusCode().value());
   }
 

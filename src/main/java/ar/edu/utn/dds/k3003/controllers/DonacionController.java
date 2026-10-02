@@ -5,9 +5,11 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.IdentificadorDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
+import ar.edu.utn.dds.k3003.exceptions.DatoInvalidoException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,17 +58,31 @@ public class DonacionController {
       @RequestParam(required = false) String fecha) {
     String donador = donadorID != null ? donadorID : donadorIdAlias;
     log.info("[API] GET /donaciones (donador={}, fecha={})", donador, fecha);
-    if (donador == null || fecha == null || fecha.isBlank()) {
+    LocalDate desde = parsearFecha(fecha);
+    // Sin donador se listan todas: lo usan el bot y el MCP para ver el sistema completo.
+    if (donador == null || donador.isBlank()) {
       return ResponseEntity.ok(fachada.buscarTodasDonaciones());
     }
+    // Con donador se filtra siempre, haya fecha o no. Antes, sin fecha se devolvían las de todo
+    // el sistema, e Incentivos (que manda fecha=) contaba como propias donaciones ajenas.
+    return ResponseEntity.ok(fachada.buscarDonacionesDeDonador(donador.trim(), desde));
+  }
+
+  /**
+   * La fecha es opcional: ausente o vacía significa «desde siempre». Un formato inválido es un
+   * error de quien llama y se le avisa; antes se respondía lista vacía y no había forma de
+   * distinguirlo de un donador que no donó nada.
+   */
+  private LocalDate parsearFecha(String fecha) {
+    if (fecha == null || fecha.isBlank()) {
+      return null;
+    }
     try {
-      return ResponseEntity.ok(
-          fachada.buscarPorDonadorYFechaInicio(donador, LocalDate.parse(fecha)));
-    } catch (RuntimeException e) {
-      // Donador sin donaciones desde esa fecha → lista vacía en vez de 500
-      log.warn(
-          "[API] GET /donaciones sin resultados para donador={}: {}", donador, e.getMessage());
-      return ResponseEntity.ok(List.of());
+      return LocalDate.parse(fecha.trim());
+    } catch (DateTimeParseException e) {
+      throw new DatoInvalidoException(
+          "La fecha '" + fecha + "' no es válida: el formato esperado es AAAA-MM-DD (por ejemplo,"
+              + " 2026-01-31)");
     }
   }
 
@@ -109,8 +125,11 @@ public class DonacionController {
   @Operation(summary = "Registrar queja en una donación")
   @Tag(name = "Flujo principal")
   @PostMapping("/donaciones/{id}/quejas")
+  // El cuerpo no es obligatorio para Spring: si falta, lo rechaza la fachada con su propio mensaje
+  // y después de verificar que la donación exista, en vez del «Required request body is missing:
+  // public ...» que arma Spring.
   public ResponseEntity<DonacionDTO> registrarQueja(
-      @PathVariable String id, @RequestBody String descripcion) {
+      @PathVariable String id, @RequestBody(required = false) String descripcion) {
     log.info("[API] POST /donaciones/{}/quejas", id);
     return ResponseEntity.ok(fachada.registrarQuejaEnDonacion(id, limpiarTexto(descripcion)));
   }

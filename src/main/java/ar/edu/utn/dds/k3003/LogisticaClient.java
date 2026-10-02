@@ -7,6 +7,7 @@ import ar.edu.utn.dds.k3003.catedra.dtos.logistica.PaqueteDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.logistica.TipoAlgoritmoEnum;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaLogistica;
+import ar.edu.utn.dds.k3003.exceptions.ModuloNoDisponibleException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,9 @@ import org.springframework.web.client.RestTemplate;
 public class LogisticaClient implements FachadaLogistica {
 
   private static final Logger log = LoggerFactory.getLogger(LogisticaClient.class);
+
+  /** Nombre con el que aparece en los mensajes de error que llegan a quien llamó. */
+  private static final String MODULO = "Logística";
 
   private final RestTemplate restTemplate;
   private final String baseUrl;
@@ -93,7 +97,9 @@ public class LogisticaClient implements FachadaLogistica {
           "[Donaciones <- Logistica] FALLO gestionarDonacion (donacionID={}): {}",
           donacionID,
           e.getMessage());
-      throw e;
+      // Una caída o un 5xx sale como 502 nombrando a Logística; un 4xx es un rechazo de
+      // Logística con su propio significado y se deja pasar como estaba.
+      throw ModuloNoDisponibleException.siEsCaida(MODULO, e);
     }
   }
 
