@@ -4,7 +4,7 @@ import ar.edu.utn.dds.k3003.Fachada;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.DonacionDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.IdentificadorDTO;
-import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
+import ar.edu.utn.dds.k3003.dtos.ProductoConSubcategoriaDTO;
 import ar.edu.utn.dds.k3003.exceptions.DatoInvalidoException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -150,19 +150,24 @@ public class DonacionController {
     return limpio;
   }
 
-  @Operation(summary = "Agregar un producto")
+  // Los productos viajan con el DTO propio del módulo y no con el de cátedra, que no tiene
+  // subcategoría. Para los clientes actuales es compatible: sin subcategoría el alta funciona
+  // igual, y la respuesta solo suma un campo.
+
+  @Operation(summary = "Agregar un producto (la subcategoría es opcional)")
   @Tag(name = "Precondiciones")
   @PostMapping("/productos")
-  public ResponseEntity<ProductoDTO> agregarProducto(@RequestBody ProductoDTO productoDTO) {
+  public ResponseEntity<ProductoConSubcategoriaDTO> agregarProducto(
+      @RequestBody ProductoConSubcategoriaDTO productoDTO) {
     log.info(
         "[API] POST /productos (nombre={})", productoDTO != null ? productoDTO.nombre() : null);
-    return ResponseEntity.status(HttpStatus.CREATED).body(fachada.agregarProducto(productoDTO));
+    return ResponseEntity.status(HttpStatus.CREATED).body(fachada.registrarProducto(productoDTO));
   }
 
   @Operation(summary = "Listar todos los productos")
   @Tag(name = "Consultas")
   @GetMapping("/productos")
-  public ResponseEntity<List<ProductoDTO>> listarProductos() {
+  public ResponseEntity<List<ProductoConSubcategoriaDTO>> listarProductos() {
     log.info("[API] GET /productos");
     return ResponseEntity.ok(fachada.buscarTodosProductos());
   }
@@ -170,9 +175,9 @@ public class DonacionController {
   @Operation(summary = "Buscar producto por ID")
   @Tag(name = "Consultas")
   @GetMapping("/productos/{id}")
-  public ResponseEntity<ProductoDTO> buscarProductoPorID(@PathVariable String id) {
+  public ResponseEntity<ProductoConSubcategoriaDTO> buscarProductoPorID(@PathVariable String id) {
     log.info("[API] GET /productos/{}", id);
-    return ResponseEntity.ok(fachada.buscarProductoPorID(id));
+    return ResponseEntity.ok(fachada.buscarProducto(id));
   }
 
   @Operation(summary = "Agregar un identificador")

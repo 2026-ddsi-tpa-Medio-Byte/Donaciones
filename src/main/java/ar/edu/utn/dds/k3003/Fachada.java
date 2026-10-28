@@ -8,27 +8,38 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.QuejaDTO;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonaciones;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaLogistica;
+import ar.edu.utn.dds.k3003.dtos.ProductoConSubcategoriaDTO;
+import ar.edu.utn.dds.k3003.eventos.Evento;
+import ar.edu.utn.dds.k3003.eventos.EventosDonaciones;
+import ar.edu.utn.dds.k3003.eventos.FechasUtc;
+import ar.edu.utn.dds.k3003.eventos.TipoEvento;
 import ar.edu.utn.dds.k3003.exceptions.DatoInvalidoException;
 import ar.edu.utn.dds.k3003.exceptions.DonacionNoQuejableException;
 import ar.edu.utn.dds.k3003.exceptions.DonadorNoHabilitadoException;
 import ar.edu.utn.dds.k3003.model.Donacion;
 import ar.edu.utn.dds.k3003.model.EstadoDonacionEn;
+import ar.edu.utn.dds.k3003.model.Producto;
 import ar.edu.utn.dds.k3003.repositories.DonacionJpaRepository;
 import ar.edu.utn.dds.k3003.repositories.DonacionRepository;
 import ar.edu.utn.dds.k3003.repositories.IdentificadorJpaRepository;
 import ar.edu.utn.dds.k3003.repositories.IdentificadorRepository;
 import ar.edu.utn.dds.k3003.repositories.ProductoJpaRepository;
 import ar.edu.utn.dds.k3003.repositories.ProductoRepository;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.stereotype.Service;
 
 @Service
-public class Fachada implements FachadaDonaciones {
+public class Fachada implements FachadaDonaciones, ApplicationEventPublisherAware {
 
   private static final org.slf4j.Logger log =
       org.slf4j.LoggerFactory.getLogger(Fachada.class);
@@ -53,6 +64,13 @@ public class Fachada implements FachadaDonaciones {
 
   private FachadaLogistica fachadaLogistica;
   private FachadaDonadoresYEntidades fachadaDonadores;
+
+  /**
+   * A dónde van los eventos para el modelo de lectura. Lo pone Spring; con el constructor sin
+   * argumentos de los tests de cátedra queda en null y no se publica nada, igual que pasa con las
+   * otras fachadas.
+   */
+  private ApplicationEventPublisher eventos;
 
   public Fachada() {
     this.inMemoryDonacionRepository = new DonacionRepository();
@@ -179,6 +197,75 @@ public class Fachada implements FachadaDonaciones {
     }
   }
 
+  /*------------------------------------------------------------Eventos (Entrega 6)----------------------------------------------------------------------- */
+
+  @Override
+  public void setApplicationEventPublisher(ApplicationEventPublisher eventos) {
+    this.eventos = eventos;
+  }
+
+  /**
+   * Arma un evento con el estado del objeto en este momento.
+   *
+   * <p>Si algo falla al armarlo, se loguea y se sigue: la operación ya ocurrió y no se puede
+   * deshacer por un problema del evento. Lo que no se publicó se recupera republicando.
+   *
+   * @return null si los eventos no están conectados o no se pudo armar
+   */
+  private Evento armar(Supplier<Evento> armado) {
+    if (eventos == null) {
+      return null;
+    }
+    try {
+      return armado.get();
+    } catch (RuntimeException e) {
+      log.warn("[Eventos] No se pudo armar el evento, no se publica: {}", e.toString());
+      metricasService.registrarEventoFallido("SIN_ARMAR");
+      return null;
+    }
+  }
+
+  /**
+   * Se lo entrega a Spring, que lo pasa al publicador cuando la transacción confirma, o en el
+   * momento si no hay una abierta (ver {@code PublicadorEventos}). Nunca lanza.
+   */
+  private void emitir(Evento evento) {
+    if (evento == null || eventos == null) {
+      return;
+    }
+    try {
+      eventos.publishEvent(evento);
+    } catch (RuntimeException e) {
+      log.warn("[Eventos] No se pudo entregar {}: {}", evento.tipo(), e.toString());
+      metricasService.registrarEventoFallido(evento.tipo().name());
+    }
+  }
+
+  /**
+   * El estado actual de todo el módulo, un {@code PRODUCTO_MODIFICADO} por producto y un {@code
+   * DONACION_ESTADO_CAMBIADO} por donación: es lo que publica {@code POST
+   * /admin/republicar-eventos}, para la carga inicial de Mongo o para resincronizarlo.
+   *
+   * <p>La hora se toma una sola vez y antes de leer. Un cambio que se confirme mientras se lee sale
+   * con su propio evento, más nuevo, y Consultas se queda con ese; si la hora se tomara después de
+   * leer, una foto vieja podría quedar como la versión más reciente.
+   *
+   * <p>Transaccional solo para leer el historial de cada donación, que se carga perezosamente. No se
+   * publica nada desde acá adentro, así que no interfiere con el envío después del commit.
+   */
+  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+  public List<Evento> estadoActualComoEventos() {
+    Instant ahora = FechasUtc.ahora();
+    List<Evento> todos = new ArrayList<>();
+    for (Producto producto : findAllProductos()) {
+      todos.add(EventosDonaciones.producto(TipoEvento.PRODUCTO_MODIFICADO, producto, ahora));
+    }
+    for (Donacion donacion : findAllDonaciones()) {
+      todos.add(EventosDonaciones.donacion(TipoEvento.DONACION_ESTADO_CAMBIADO, donacion, ahora));
+    }
+    return todos;
+  }
+
   /*------------------------------------------------------------Entrega 1--------------------------------------------------------------------------------- */
 
   public DonacionDTO registrarDonacion(DonacionDTO donacionDTO) {
@@ -231,7 +318,19 @@ public class Fachada implements FachadaDonaciones {
       Donacion guardada = saveDonacion(nuevaDonacion);
       log.info("[Donaciones] Donacion guardada en BD (id={})", guardada.getId());
 
+      // El evento se arma ya, con la hora del alta, pero sale recién si Logística la aceptó: si
+      // no, la compensación la borra, y Consultas no tiene por qué enterarse de una donación que
+      // no llegó a existir. La hora es la del alta y no la del envío para que un cambio de estado
+      // posterior siempre quede como más nuevo.
+      Evento registrada =
+          armar(
+              () ->
+                  EventosDonaciones.donacion(
+                      TipoEvento.DONACION_REGISTRADA, guardada, FechasUtc.ahora()));
+
       avisarALogisticaOCompensar(donacionDTO, guardada);
+
+      emitir(registrada);
 
       metricasService.incrementarDonacionesRegistradas();
 
@@ -332,6 +431,11 @@ public class Fachada implements FachadaDonaciones {
         donacionId,
         falloDeLogistica.getMessage(),
         donacionId);
+    // El DONACION_REGISTRADA no salió, pero el borrado se publica igual: un republicar que haya
+    // corrido mientras se esperaba a Logística pudo haberla mandado a Mongo, y desde acá no hay
+    // forma de saberlo. Si Consultas nunca la vio, el evento no tiene efecto. Si el borrado falló
+    // (arriba), no se publica: la donación sigue existiendo.
+    emitir(armar(() -> EventosDonaciones.donacionEliminada(donacionId, FechasUtc.ahora())));
   }
 
   @Override
@@ -357,6 +461,14 @@ public class Fachada implements FachadaDonaciones {
     // auditoría, que si no quedaba solo con el INGRESADA inicial.
     donacion.setHistorialEstados(EstadoDonacionEn.valueOf(estado.name()));
     Donacion actualizada = saveDonacion(donacion);
+
+    // Cubre los dos caminos: el PATCH con el que Logística reporta la entrega y el paso a
+    // CONQUEJA de una queja, que pasa por acá.
+    emitir(
+        armar(
+            () ->
+                EventosDonaciones.donacion(
+                    TipoEvento.DONACION_ESTADO_CAMBIADO, actualizada, FechasUtc.ahora())));
 
     metricasService.incrementarDonacionesCambioEstado();
 
@@ -484,6 +596,13 @@ public class Fachada implements FachadaDonaciones {
    */
   @org.springframework.transaction.annotation.Transactional
   public void resetBaseDeDatos() {
+    vaciarBase();
+    // Consultas borra todo lo de Donaciones anterior a este evento: así el reset de la demo deja
+    // Mongo coherente sin un paso extra. Como esto corre en una transacción, sale al confirmarla.
+    emitir(armar(() -> EventosDonaciones.moduloReseteado(FechasUtc.ahora())));
+  }
+
+  private void vaciarBase() {
     if (donacionJpaRepository == null) {
       inMemoryProductoRepository.deleteAll();
       inMemoryIdentificadorRepository.deleteAll();
@@ -521,6 +640,13 @@ public class Fachada implements FachadaDonaciones {
     donacionJpaRepository.deleteAll();
   }
 
+  /**
+   * Transaccional porque llama a {@link #resetBaseDeDatos()} desde adentro de la clase, sin pasar
+   * por el proxy de Spring: sin esto el reset corría sin transacción y el {@code flush} (H2) o el
+   * {@code TRUNCATE} (PostgreSQL) fallaban, así que {@code POST /seed} respondía 400 siempre. Los
+   * eventos (el reset y el producto) salen juntos al confirmar.
+   */
+  @org.springframework.transaction.annotation.Transactional
   public String seedBaseDeDatos() {
     resetBaseDeDatos();
 
@@ -531,9 +657,16 @@ public class Fachada implements FachadaDonaciones {
                 ar.edu.utn.dds.k3003.catedra.dtos.donaciones.TipoIdentificadorEnum.CODIGODEBARRAS,
                 "Identificador semilla"));
 
-    agregarProducto(
-        new ProductoDTO(
-            null, "Arroz", "Arroz blanco largo fino", "alimentos", identificadorDTO.id()));
+    // Con subcategoría, para que las consultas que filtran por categoría y subcategoría tengan
+    // algo que encontrar apenas se carga la semilla.
+    registrarProducto(
+        new ProductoConSubcategoriaDTO(
+            null,
+            "Arroz",
+            "Arroz blanco largo fino",
+            "alimentos",
+            "cereales",
+            identificadorDTO.id()));
 
     return "Datos de prueba cargados correctamente";
   }
@@ -570,57 +703,85 @@ public class Fachada implements FachadaDonaciones {
         .collect(Collectors.toList());
   }
 
+  /** La interfaz de cátedra no conoce la subcategoría: el producto queda sin ella. */
   @Override
   public ProductoDTO agregarProducto(ProductoDTO dto) {
+    return registrarProducto(dto == null ? null : ProductoConSubcategoriaDTO.desde(dto))
+        .aProductoDTO();
+  }
+
+  /** El alta completa, con subcategoría. Es la que usa {@code POST /productos}. */
+  public ProductoConSubcategoriaDTO registrarProducto(ProductoConSubcategoriaDTO dto) {
     ar.edu.utn.dds.k3003.model.Identificador identificador =
         findIdentificadorById(dto.identificadorID());
     validarNombreDeProductoNoRepetido(dto.nombre());
-    validarProducto(dto, identificador);
+    validarProducto(dto.nombre(), dto.descripcion(), identificador);
 
-    ar.edu.utn.dds.k3003.model.Producto producto =
-        new ar.edu.utn.dds.k3003.model.Producto(
-            dto.nombre(), dto.descripcion(), dto.categoriaID(), identificador.getId());
-    ar.edu.utn.dds.k3003.model.Producto guardado =
+    Producto producto =
+        new Producto(
+            dto.nombre(),
+            dto.descripcion(),
+            dto.categoriaID(),
+            sinBlancos(dto.subcategoria()),
+            identificador.getId());
+    Producto guardado =
         productoJpaRepository != null
             ? productoJpaRepository.save(producto)
             : inMemoryProductoRepository.save(producto);
 
     metricasService.incrementarProductosRegistrados();
 
-    return new ProductoDTO(
+    emitir(
+        armar(
+            () ->
+                EventosDonaciones.producto(
+                    TipoEvento.PRODUCTO_CREADO, guardado, FechasUtc.ahora())));
+
+    return new ProductoConSubcategoriaDTO(
         guardado.getId().toString(),
         guardado.getNombre(),
         guardado.getDescripcion(),
         guardado.getCategoriaID(),
+        guardado.getSubcategoria(),
         dto.identificadorID());
+  }
+
+  /**
+   * La subcategoría no se valida, pero «sin subcategoría» se guarda siempre igual: si un vacío
+   * quedara distinto de un null, la consulta de calidad, que agrupa por subcategoría, los
+   * mostraría como dos grupos.
+   */
+  private static String sinBlancos(String texto) {
+    return texto == null || texto.isBlank() ? null : texto.strip();
   }
 
   @Override
   public ProductoDTO buscarProductoPorID(String productoID) {
-    ar.edu.utn.dds.k3003.model.Producto producto = findProductoById(productoID);
-    return new ProductoDTO(
-        producto.getId().toString(),
-        producto.getNombre(),
-        producto.getDescripcion(),
-        producto.getCategoriaID(),
-        producto.getIdentificadorID().toString());
+    return buscarProducto(productoID).aProductoDTO();
   }
 
-  public List<ProductoDTO> buscarTodosProductos() {
-    List<ar.edu.utn.dds.k3003.model.Producto> productos =
-        productoJpaRepository != null
-            ? productoJpaRepository.findAll()
-            : inMemoryProductoRepository.findAll();
-    return productos.stream()
-        .map(
-            p ->
-                new ProductoDTO(
-                    p.getId().toString(),
-                    p.getNombre(),
-                    p.getDescripcion(),
-                    p.getCategoriaID(),
-                    p.getIdentificadorID().toString()))
-        .collect(Collectors.toList());
+  public ProductoConSubcategoriaDTO buscarProducto(String productoID) {
+    return aDTO(findProductoById(productoID));
+  }
+
+  public List<ProductoConSubcategoriaDTO> buscarTodosProductos() {
+    return findAllProductos().stream().map(this::aDTO).collect(Collectors.toList());
+  }
+
+  private List<Producto> findAllProductos() {
+    return productoJpaRepository != null
+        ? productoJpaRepository.findAll()
+        : inMemoryProductoRepository.findAll();
+  }
+
+  private ProductoConSubcategoriaDTO aDTO(Producto p) {
+    return new ProductoConSubcategoriaDTO(
+        p.getId().toString(),
+        p.getNombre(),
+        p.getDescripcion(),
+        p.getCategoriaID(),
+        p.getSubcategoria(),
+        p.getIdentificadorID().toString());
   }
 
   /** Verifica que no exista otro producto registrado con el mismo nombre. */
@@ -638,17 +799,17 @@ public class Fachada implements FachadaDonaciones {
   }
 
   private void validarProducto(
-      ProductoDTO dto, ar.edu.utn.dds.k3003.model.Identificador identificador) {
+      String nombre, String descripcion, ar.edu.utn.dds.k3003.model.Identificador identificador) {
     switch (identificador.getTipo()) {
       case CODIGODEBARRAS -> {
-        String[] palabras = dto.descripcion().trim().split("\\s+");
+        String[] palabras = descripcion.trim().split("\\s+");
         if (palabras.length < 3) {
           throw new RuntimeException(
               "Descripción debe tener al menos 3 palabras para CODIGODEBARRAS");
         }
       }
       case QR -> {
-        long cantLetras = dto.nombre().chars().filter(Character::isLetter).count();
+        long cantLetras = nombre.chars().filter(Character::isLetter).count();
         if (cantLetras % 2 != 0) {
           throw new RuntimeException("Nombre debe tener cantidad par de letras para QR");
         }

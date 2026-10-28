@@ -10,6 +10,7 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.TipoIdentificadorEnum;
 import ar.edu.utn.dds.k3003.controllers.DonacionController;
 import ar.edu.utn.dds.k3003.controllers.GlobalExceptionHandler;
+import ar.edu.utn.dds.k3003.dtos.ProductoConSubcategoriaDTO;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -65,7 +66,7 @@ class Entrega4Test {
     fachada.agregarProducto(
         new ProductoDTO(null, "Fideos", "Fideos secos tipo tirabuzon", "alimentos", id.id()));
 
-    List<ProductoDTO> productos = fachada.buscarTodosProductos();
+    List<ProductoConSubcategoriaDTO> productos = fachada.buscarTodosProductos();
     assertEquals(2, productos.size());
   }
 

@@ -38,6 +38,56 @@ También expone lo que otros módulos necesitan: `GET /productos/{id}` con 404 (
 para validar necesidades), el listado por donador (lo usa Incentivos para las misiones) y
 `PATCH /donaciones/{id}/estado` (lo usa Logística al reportar la entrega).
 
+**Subcategoría de producto (Entrega 6).** `Producto` tiene `subcategoria`, texto libre y opcional
+como la categoría, porque las consultas de urgencias y de calidad filtran por las dos. Es un dato:
+no se valida (un vacío se guarda como null, para que «sin subcategoría» sea un solo grupo).
+`ProductoDTO` es de cátedra y no la tiene, así que la API usa `dtos/ProductoConSubcategoriaDTO`:
+`POST /productos` la acepta y los `GET /productos` la devuelven. Sin el campo, el alta funciona
+igual que antes. `agregarProducto(ProductoDTO)` de la interfaz de cátedra crea el producto sin
+subcategoría. La semilla (`POST /seed`) carga «Arroz», `alimentos` / `cereales`.
+
+## Eventos para el modelo de lectura (Entrega 6, CQRS)
+
+Cada cambio de estado se publica en RabbitMQ para que el Servicio de Consultas arme su copia en
+MongoDB. El formato es el de `guias-entrega-6/CONTRATO-EVENTOS.md`: sobre común (`eventoId`,
+`tipo`, `modulo`, `entidadId`, `ocurridoEn`, `datos`), `datos` con el estado **completo** y todas
+las fechas en UTC con milisegundos y `Z`. Exchange `donatrack.eventos` (topic, lo creó Logística);
+el módulo **solo publica**: no declara colas ni el exchange.
+
+| Evento | Routing key | Cuándo |
+|---|---|---|
+| `PRODUCTO_CREADO` | `donaciones.producto.creado` | alta de producto |
+| `PRODUCTO_MODIFICADO` | `donaciones.producto.modificado` | solo al republicar (no hay forma de modificar productos) |
+| `DONACION_REGISTRADA` | `donaciones.donacion.registrada` | alta de donación, **después** de que Logística la aceptó |
+| `DONACION_ESTADO_CAMBIADO` | `donaciones.donacion.estado_cambiado` | `PATCH /estado` (entrega) y paso a `CONQUEJA`; también al republicar |
+| `DONACION_ELIMINADA` | `donaciones.donacion.eliminada` | la compensación borró la donación porque Logística falló |
+| `MODULO_RESETEADO` | `donaciones.modulo.reseteado` | `DELETE /donaciones/reset` y `POST /seed` (`entidadId` `"*"`, `datos` `{}`) |
+
+- **Después del commit.** La `Fachada` entrega el evento a Spring y `eventos/PublicadorEventos` lo
+  recibe con `@TransactionalEventListener(AFTER_COMMIT, fallbackExecution = true)`. Casi ninguna
+  operación abre transacción propia (cada `save` confirma la suya): ahí el evento sale en el
+  momento, que ya es después del commit. El reset y la semilla sí son transaccionales y publican al
+  confirmar; si se revierten, no sale nada.
+- **Publicar nunca rompe la operación.** Si RabbitMQ falla: WARN en el log, `eventos.fallidos`
+  (con tag `tipo`) en las métricas, y la operación responde igual. Lo mismo si falla armar el
+  evento. Los que salen bien suman `eventos.publicados`. Conexión con 5 s de límite, porque se
+  publica en el hilo del pedido, y sin health check de Rabbit, para que un broker caído no deje al
+  módulo `DOWN`.
+- **El alta y la compensación.** `DONACION_REGISTRADA` se arma con la hora del alta pero se envía
+  recién cuando Logística aceptó: si Logística falla, la donación se borra y Mongo nunca la vio. La
+  compensación igual publica `DONACION_ELIMINADA`, porque un republicar que corriera mientras se
+  esperaba a Logística pudo haberla mandado, y un borrado de algo que Consultas no conoce no tiene
+  efecto. Si el borrado falla, no se publica nada (la donación sigue existiendo).
+- **`RABBITMQ_URL`** (`amqps://usuario:password@host/vhost`, la misma de Logística) se mapea a
+  `spring.rabbitmq.addresses`. Va **solo** en las variables de entorno de Render. Sin ella el
+  publicador queda deshabilitado: lo avisa una vez al arrancar y no se conecta nunca. Así corre en
+  local y en los tests (`application-test.properties` la deja vacía a propósito).
+- **`POST /admin/republicar-eventos`** (tag `Administración`) vuelve a publicar todos los productos
+  (`PRODUCTO_MODIFICADO`) y todas las donaciones (`DONACION_ESTADO_CAMBIADO`) con `ocurridoEn` =
+  ahora. Es la carga inicial de Mongo y la forma de resincronizar. Responde
+  `{eventosHabilitados, total, publicados, fallidos}`.
+- El `traceId` del pedido viaja en el header `X-Trace-Id` del mensaje.
+
 ## Reglas de negocio no evidentes
 
 - Con identificador `CODIGODEBARRAS`, la descripción del producto necesita **3+ palabras**.
@@ -74,8 +124,12 @@ Los clientes HTTP (`DonadoresYEntidadesClient`, `LogisticaClient`) traducen una 
 ## Estructura
 
 ```
-Fachada.java                    lógica de negocio
-controllers/DonacionController  todos los endpoints
+Fachada.java                    lógica de negocio; arma y emite los eventos
+controllers/DonacionController  los endpoints de negocio, productos e identificadores
+controllers/EventosController   POST /admin/republicar-eventos
+dtos/ProductoConSubcategoriaDTO el producto de la API, con subcategoría
+eventos/                        catálogo (TipoEvento), sobre (Evento), armado (EventosDonaciones),
+                                fechas en UTC (FechasUtc) y envío a RabbitMQ (PublicadorEventos)
 logging/DatadogLogAppender      envía logs a Datadog en lotes, nunca bloquea
 logging/TrazabilidadFilter      pone traceId y requestId en el MDC
 config/OpenApiConfig            agrupa el Swagger por propósito
@@ -94,5 +148,8 @@ Si la clase también tuviera `@Tag`, cada endpoint aparecería duplicado.
 mvn test
 ```
 
-165 tests, 0 fallos. Corren 123: los 42 saltados son los tests de cátedra de los otros módulos,
-que se desactivan solos. Si algo de cátedra se pone en rojo, el cambio está mal.
+225 tests, 0 fallos. Corren 183: los 42 saltados son los tests de cátedra de los otros módulos,
+que se desactivan solos (`DonacionesTest` corre entero, 10/10). Si algo de cátedra se pone en
+rojo, el cambio está mal. Los de eventos están en `src/test/.../eventos/`: `EventosConBrokerTest`
+levanta un contexto aparte, con el publicador habilitado y el `RabbitTemplate` simulado, así que la
+suite tarda unos segundos más.

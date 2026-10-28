@@ -131,4 +131,27 @@ public class MetricasService {
         .register(meterRegistry)
         .record(nanos, TimeUnit.NANOSECONDS);
   }
+
+  // ── Eventos para el modelo de lectura (Entrega 6) ─────────────────────────
+  //
+  // Un evento que no sale no hace fallar la operación: solo queda en el log y acá. Por eso
+  // hace falta contarlo, para poder alarmar si Mongo se está quedando atrás.
+
+  /** Un evento que llegó a RabbitMQ. */
+  public void registrarEventoPublicado(String tipo) {
+    contadorDeEventos("eventos.publicados", "Eventos publicados en RabbitMQ", tipo).increment();
+  }
+
+  /** Un evento que no se pudo publicar: hay que republicar para que Consultas se ponga al día. */
+  public void registrarEventoFallido(String tipo) {
+    contadorDeEventos("eventos.fallidos", "Eventos que no se pudieron publicar", tipo).increment();
+  }
+
+  private Counter contadorDeEventos(String nombre, String descripcion, String tipo) {
+    return Counter.builder(nombre)
+        .description(descripcion)
+        .tag("modulo", "donaciones")
+        .tag("tipo", tipo)
+        .register(meterRegistry);
+  }
 }

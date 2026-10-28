@@ -14,14 +14,33 @@ public class Producto {
   private String nombre;
   private String descripcion;
   private String categoriaID;
+
+  /**
+   * Texto libre y opcional, igual que la categoría. Lo agregó la Entrega 6 porque las consultas
+   * de urgencias y de calidad filtran por categoría <b>y</b> subcategoría. Es un dato, no una
+   * regla: no se valida. Con {@code ddl-auto=update} la columna se crea sola en Render, y los
+   * productos que ya existían quedan sin subcategoría.
+   */
+  private String subcategoria;
+
   private Long identificadorID;
 
   public Producto() {}
 
   public Producto(String nombre, String descripcion, String categoriaID, Long identificadorID) {
+    this(nombre, descripcion, categoriaID, null, identificadorID);
+  }
+
+  public Producto(
+      String nombre,
+      String descripcion,
+      String categoriaID,
+      String subcategoria,
+      Long identificadorID) {
     this.nombre = nombre;
     this.descripcion = descripcion;
     this.categoriaID = categoriaID;
+    this.subcategoria = subcategoria;
     this.identificadorID = identificadorID;
   }
 
@@ -51,6 +70,10 @@ public class Producto {
 
   public String getCategoriaID() {
     return categoriaID;
+  }
+
+  public String getSubcategoria() {
+    return subcategoria;
   }
 
   public Long getIdentificadorID() {
